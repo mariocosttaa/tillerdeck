@@ -1,4 +1,7 @@
+mod manifest;
 mod project;
+mod releases;
+mod template;
 mod runner;
 mod shell;
 mod vault;
