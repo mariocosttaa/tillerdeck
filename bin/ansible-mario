@@ -1,0 +1,5 @@
+#!/bin/sh
+# Abre um projecto Ansible na app: `ansible-mario` (pasta actual) ou `ansible-mario <pasta>`.
+dir="${1:-.}"
+dir="$(cd "$dir" && pwd)" || exit 1
+exec open -n -a "Ansible Mario" --args "$dir"
