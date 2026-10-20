@@ -1,0 +1,9 @@
+---
+# The API container. The image tag comes from releases/<env>.yml.
+- name: Deploy the API
+  hosts: all
+  become: true
+  tasks:
+    - name: Show what is about to be deployed
+      ansible.builtin.debug:
+        msg: "{{ app_name }} {{ api_tag | default('latest') }} on port {{ app_port }}"

@@ -1,0 +1,6 @@
+---
+- name: Install base packages
+  ansible.builtin.apt:
+    name: [curl, htop]
+    state: present
+    update_cache: true
