@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CircleCheck, FileCode2, KeyRound, Plus, RotateCcw, Save, Trash2, TriangleAlert, Wand2, X } from "lucide-react";
-import { api, errorText, type Action, type EnvDef, type Manifest, type Operation, type Product, type Service, type TemplateReport, type Variable, type Versions } from "../../api";
+import { api, errorText, type Action, type EnvDef, type Manifest, type Operation, type Product, type Service, type Variable, type Versions } from "../../api";
 import { useWs } from "../context";
 import { ENV_COLOR } from "../lib";
 import { Chips, EnvDot, KINDS, Modal, Select, TechIcon, Tint, Toggle, techLabel, type Opt } from "../ui";
-import { lang, t, tn } from "../i18n";
+import { t, tn } from "../i18n";
 import { GitSettings, Preferences } from "./Personal";
+import { Wizard } from "./Detect";
+
+export { Wizard };
 
 type Tab = "general" | "servers" | "products" | "operations" | "variables" | "json" | "preferences" | "git";
 
@@ -118,7 +121,7 @@ export function Settings() {
                 : <>{t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}</>}
             </p>
           )}
-          {!personal && <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Apply template")}</button>}
+          {!personal && <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Detect again")}</button>}
           {changed && <button className="b b-ghost" onClick={() => update(ws.manifest)}><RotateCcw size={15} />{t("Discard")}</button>}
           {(!personal || dirty) && <button className="b b-pri" disabled={!dirty || !!jsonErr} onClick={save}><Save size={15} />{dirty ? t("Save") : t("Saved")}</button>}
         </div>
@@ -178,7 +181,7 @@ export function Settings() {
           </div>
         )}
       </div>
-      {wizard && <Wizard root={ws.project.root} name={ws.project.name} toast={ws.toast} onClose={() => setWizard(false)} onApplied={async () => { setWizard(false); await ws.refresh(); }} />}
+      {wizard && <Wizard root={ws.project.root} name={ws.project.name} toast={ws.toast} autoTemplate={ws.state.auto?.template} current={ws.state.auto ? undefined : ws.manifest} onClose={() => setWizard(false)} onApplied={async () => { setWizard(false); await ws.refresh(); }} />}
     </section>
   );
 }
@@ -612,90 +615,3 @@ function AddVariable({ m, files, vaults, onClose, onAdd }: { m: Manifest; files:
   );
 }
 
-/** Aplicar um template: a app lê o projecto e propõe; grava-se depois de rever. */
-export function Wizard({ root, name, toast, onClose, onApplied, first, autoTemplate }: { root: string; name: string; toast: (t: string, bad?: boolean) => void; onClose: () => void; onApplied: () => void; first?: boolean; autoTemplate?: string }) {
-  const [reports, setReports] = useState<Record<string, TemplateReport | null>>({});
-  const [choice, setChoice] = useState<string>(autoTemplate ?? "makefile-convention");
-  useEffect(() => {
-    for (const tp of ["makefile-convention", "playbooks"]) api.templateReport(root, tp, lang()).then((r) => setReports((x) => ({ ...x, [tp]: r }))).catch(() => setReports((x) => ({ ...x, [tp]: null })));
-  }, []);
-  useEffect(() => {
-    if (!autoTemplate && reports["makefile-convention"] && !reports["makefile-convention"].compatible && reports.playbooks?.compatible) setChoice("playbooks");
-  }, [reports]);
-  // Boas-vindas: o projecto já abriu com o template automático; escolher
-  // outro, ou guardar, é opcional.
-  const welcome = !!autoTemplate;
-  const r = reports[choice];
-  const services = r ? r.manifest.products.reduce((a, p) => a + p.services.length, 0) : 0;
-
-  async function apply() {
-    if (!r) return;
-    try {
-      await api.manifestSave(root, r.manifest);
-      toast(t("ansible-mario.json created — review it in Settings"));
-      onApplied();
-    } catch (e) {
-      toast(errorText(e), true);
-    }
-  }
-
-  const option = (id: string, title: string, desc: ReactNode) => {
-    const rep = reports[id];
-    return (
-      <button className="flex w-full gap-3 rounded-xl p-4 text-left" style={{ boxShadow: choice === id ? "0 0 0 2px var(--w-accent)" : "0 0 0 1px var(--w-line-2)" }} onClick={() => setChoice(id)}>
-        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full" style={choice === id ? { background: "var(--w-accent)", color: "#fff" } : { boxShadow: "inset 0 0 0 1.5px var(--w-fg-3)" }}>{choice === id && <CircleCheck size={13} />}</span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2 font-medium">
-            {title}
-            {rep === undefined ? <span className="text-[12px] text-fg-3">{t("analysing…")}</span> : rep?.compatible ? <Tint color="var(--ok)">{t("compatible · {a}/{b}", { a: rep.matched, b: rep.total })}</Tint> : <Tint color="var(--w-fg-3)">{t("not compatible")}</Tint>}
-          </span>
-          <span className="mt-0.5 block text-[12px] text-fg-3">{desc}</span>
-        </span>
-      </button>
-    );
-  };
-
-  return (
-    <Modal onClose={onClose} width={660}>
-      <div className="p-7">
-        <span className="grid size-10 place-items-center rounded-xl text-accent" style={{ background: "color-mix(in srgb, var(--w-accent) 15%, transparent)" }}><Wand2 size={20} /></span>
-        <h2 className="mt-4 text-[20px] font-semibold tracking-tight">{welcome ? t("{name} is ready", { name }) : first ? t("{name} has no settings yet", { name }) : t("Apply a template")}</h2>
-        <p className="mt-1 text-fg-2">
-          {welcome
-            ? t("The app read your project with the most compatible template and opened it. Nothing is written to the repository until you save — and everything can be changed later in Settings.")
-            : <>{t("The app reads the project and proposes.")} {first ? t("Without settings, Files mode is still available.") : t("It replaces the current ansible-mario.json.")}</>}
-        </p>
-        <div className="mt-5 space-y-2">
-          {option("makefile-convention", t("Makefile convention"), <>{t("Targets")} <span className="font-mono">verb-product-technology-environment</span>, {t("like")} <span className="font-mono">deploy-shop-nestjs-staging</span>.</>)}
-          {option("playbooks", t("Playbooks only"), t("One button per playbook, with the server's inventory and release."))}
-        </div>
-        {r && (
-          <>
-            <div className="mt-5 grid grid-cols-4 gap-2 rounded-xl bg-raise-2 p-4 text-center">
-              {[[r.manifest.environments.length, t("servers")], [r.manifest.products.length, t("products")], [services, t("services")], [r.manifest.operations.length, t("operations")]].map(([n, l]) => (
-                <div key={l as string}><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-fg-3">{l}</p></div>
-              ))}
-            </div>
-            {r.unmatched.length > 0 && <p className="mt-3 text-[12px] text-fg-3">{t("Left out:")} <span className="font-mono">{r.unmatched.join(", ")}</span></p>}
-            {r.warnings.map((w) => <p key={w} className="mt-1 text-[12px] text-warn">{w}</p>)}
-          </>
-        )}
-        {welcome ? (
-          <div className="mt-6 flex justify-end gap-2">
-            <button className="b" disabled={!r} onClick={apply}><Save size={15} />{t("Save ansible-mario.json")}</button>
-            {choice === autoTemplate
-              ? <button className="b b-pri" onClick={onClose}>{t("Start")}</button>
-              : <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}>{t("Use this template")}</button>}
-          </div>
-        ) : (
-          <div className="mt-6 flex justify-end gap-2">
-            <button className="b" onClick={onClose}>{first ? t("Not now") : t("Cancel")}</button>
-            <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}><Plus size={15} />{t("Create ansible-mario.json")}</button>
-          </div>
-        )}
-        {welcome && <p className="mt-3 text-[12px] text-fg-3">{t("Saving puts ansible-mario.json in the project folder (not committed), so the team sees the same.")}</p>}
-        {!first && <p className="mt-3 flex items-center gap-1.5 text-[12px] text-fg-3"><Trash2 size={12} />{t("Your manual changes to the current file are lost.")}</p>}
-      </div>
-    </Modal>
-  );
-}
