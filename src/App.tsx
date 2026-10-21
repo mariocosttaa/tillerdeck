@@ -145,6 +145,22 @@ export default function App() {
     };
   }, [proj.project, proj.state, m, env, page, makeInfo, makeVars, runs.runs, runs.history, selected]);
 
+  // O aviso ao sair existe em todos os ecrãs: o Rust bloqueia o ⌘Q sempre
+  // que há corridas ou ficheiros por gravar, esteja onde estiver.
+  const quitModal = quit && (
+        <Modal onClose={() => setQuit(null)} width={460}>
+          <div className="p-6">
+            <p className="text-[16px] font-semibold">Sair da app?</p>
+            {quit.running > 0 && <p className="mt-2 text-[13px] text-warn">Há {quit.running} corrida{quit.running > 1 ? "s" : ""} a decorrer. Sair agora interrompe o Ansible a meio de uma task.</p>}
+            {quit.dirty && <p className="mt-2 text-[13px] text-warn">Há ficheiros com alterações por gravar.</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="b b-pri" autoFocus onClick={() => setQuit(null)}>Ficar</button>
+              <button className="b b-prod" onClick={() => api.forceQuit()}>{quit.running > 0 ? "Interromper e sair" : "Sair"}</button>
+            </div>
+          </div>
+        </Modal>
+  );
+
   // ---------------------------------------------------------------- sem projecto
   if (!proj.project) {
     return (
@@ -172,6 +188,7 @@ export default function App() {
             </>
           )}
         </div>
+        {quitModal}
         {toast && <Toast text={toast.text} bad={toast.bad} onClose={() => setToast(null)} />}
       </div>
     );
@@ -195,6 +212,7 @@ export default function App() {
         {!skipWizard && (
           <Wizard first root={p.root} name={p.name} toast={say} onClose={() => setSkipWizard(true)} onApplied={() => proj.refresh()} />
         )}
+        {quitModal}
         {toast && <Toast text={toast.text} bad={toast.bad} onClose={() => setToast(null)} />}
       </div>
     );
@@ -227,19 +245,7 @@ export default function App() {
       </Shell>
       {confirm && <Confirm spec={confirm} onClose={() => setConfirm(null)} />}
       {palette && <Palette onClose={() => setPalette(false)} />}
-      {quit && (
-        <Modal onClose={() => setQuit(null)} width={460}>
-          <div className="p-6">
-            <p className="text-[16px] font-semibold">Sair da app?</p>
-            {quit.running > 0 && <p className="mt-2 text-[13px] text-warn">Há {quit.running} corrida{quit.running > 1 ? "s" : ""} a decorrer. Sair agora interrompe o Ansible a meio de uma task.</p>}
-            {quit.dirty && <p className="mt-2 text-[13px] text-warn">Há ficheiros com alterações por gravar.</p>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button className="b b-pri" autoFocus onClick={() => setQuit(null)}>Ficar</button>
-              <button className="b b-prod" onClick={() => api.forceQuit()}>{quit.running > 0 ? "Interromper e sair" : "Sair"}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {quitModal}
       {toast && <Toast text={toast.text} bad={toast.bad} onClose={() => setToast(null)} />}
     </WsProvider>
   );
