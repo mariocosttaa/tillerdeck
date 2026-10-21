@@ -136,11 +136,11 @@ export default function Workspace({ initial }: { initial: Project }) {
   }, [active?.path, project]);
   const dirty = useMemo(() => new Set(files.filter((f) => f.content !== f.saved).map((f) => f.path)), [files]);
   useEffect(() => {
-    api.setDirty(dirty.size > 0).catch(() => {});
+    api.setDirty(initial.root, dirty.size > 0).catch(() => {});
   }, [dirty.size]);
   // Ao desmontar (outro projecto), já não há nada por gravar aqui.
   useEffect(() => () => {
-    api.setDirty(false).catch(() => {});
+    api.setDirty(initial.root, false).catch(() => {});
   }, []);
   const update = (path: string, patch: Partial<OpenFile>) => setFiles((fs) => fs.map((f) => (f.path === path ? { ...f, ...patch } : f)));
 

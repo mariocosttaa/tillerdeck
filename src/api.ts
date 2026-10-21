@@ -126,7 +126,8 @@ export const api = {
   runLog: (id: string) => invoke<string>("run_log", { id }),
   environment: () => invoke<Environment>("environment"),
   initialProject: () => invoke<string | null>("initial_project"),
-  setDirty: (dirty: boolean) => invoke<void>("set_dirty", { dirty }),
+  setDirty: (root: string, dirty: boolean) => invoke<void>("set_dirty", { root, dirty }),
+  dirtyRoots: () => invoke<string[]>("dirty_roots"),
   forceQuit: () => invoke<void>("force_quit"),
   // v2
   projectState: (root: string, lang?: string) => invoke<ProjectState>("project_state", { root, lang: lang ?? null }),
@@ -312,7 +313,7 @@ export interface ProjectState {
   git: { branch: string | null; dirty: string[] };
   callbacks: string[];
   /** sem ansible-mario.json: o manifesto veio do template mais compatível e ainda não está gravado */
-  auto: { template: string; matched: number; total: number } | null;
+  auto: { template: string; matched: number; total: number; sources?: string[] } | null;
 }
 
 export interface TemplateReport {
@@ -323,6 +324,10 @@ export interface TemplateReport {
   manifest: Manifest;
   unmatched: string[];
   warnings: string[];
+  /** de onde veio cada coisa: `env:staging`, `svc:shop/api`, `op:backup`, `var:x` → linhas */
+  evidence?: Record<string, string[]>;
+  /** o que se leu: Makefile, playbooks, roles */
+  sources?: string[];
 }
 
 export interface Revision {

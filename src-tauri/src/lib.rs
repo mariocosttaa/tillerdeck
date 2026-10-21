@@ -24,7 +24,9 @@ fn root_path(root: &str) -> PathBuf {
 
 #[tauri::command]
 fn open_project(path: String) -> project::Project {
-    project::scan(&root_path(&path))
+    // o caminho canónico: é o que as corridas guardam, e o que distingue dois projectos abertos
+    let p = root_path(&path);
+    project::scan(&p.canonicalize().unwrap_or(p))
 }
 
 #[tauri::command]
@@ -361,13 +363,22 @@ async fn environment() -> Environment {
 /// interface) e corridas activas (sabe o backend).
 #[derive(Default)]
 struct Guard {
-    dirty: AtomicBool,
+    /// Os projectos abertos com ficheiros por gravar.
+    dirty: std::sync::Mutex<std::collections::BTreeSet<String>>,
     quitting: AtomicBool,
 }
 
 #[tauri::command]
-fn set_dirty(guard: State<Arc<Guard>>, dirty: bool) {
-    guard.dirty.store(dirty, Ordering::Relaxed);
+fn set_dirty(guard: State<Arc<Guard>>, root: Option<String>, dirty: bool) {
+    let mut set = guard.dirty.lock().unwrap();
+    let root = root.unwrap_or_default();
+    if dirty { set.insert(root); } else { set.remove(&root); }
+}
+
+/// Os projectos com ficheiros por gravar — fechar um deles pede confirmação.
+#[tauri::command]
+fn dirty_roots(guard: State<Arc<Guard>>) -> Vec<String> {
+    guard.dirty.lock().unwrap().iter().cloned().collect()
 }
 
 #[tauri::command]
@@ -393,7 +404,7 @@ fn should_block(app: &AppHandle) -> bool {
         return false;
     }
     let running = runner::active_count(&app.state::<Runs>());
-    let dirty = guard.dirty.load(Ordering::Relaxed);
+    let dirty = !guard.dirty.lock().unwrap().is_empty();
     if running == 0 && !dirty {
         return false;
     }
@@ -432,6 +443,7 @@ pub fn run() {
             environment,
             initial_project,
             set_dirty,
+            dirty_roots,
             force_quit,
             project_state,
             template_report,
