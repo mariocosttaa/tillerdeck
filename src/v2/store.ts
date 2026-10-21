@@ -115,36 +115,26 @@ export function useRuns() {
   return { runs, history, start, waitExit, openLog, runningList, setHistory };
 }
 
-/** O projecto aberto: a árvore (v1) e o estado v2 (manifesto, releases, git). */
-export function useProject() {
-  const [project, setProject] = useState<Project | null>(null);
+/** Um projecto já aberto (um dos vários): lê o estado ao montar e quando se pede. */
+export function useProjectAt(initial: Project) {
+  const [project, setProject] = useState<Project>(initial);
   const [state, setState] = useState<ProjectState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async (path: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const p = await api.openProject(path);
-      const s = await api.projectState(p.root, lang());
-      setProject(p);
-      setState(s);
-      return p;
-    } catch (e) {
-      setError(errorText(e));
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const refresh = useCallback(async () => {
-    if (!project) return;
-    const [p, s] = await Promise.all([api.openProject(project.root), api.projectState(project.root, lang())]);
-    setProject(p);
-    setState(s);
-  }, [project]);
+    try {
+      const [p, s] = await Promise.all([api.openProject(initial.root), api.projectState(initial.root, lang())]);
+      setProject(p);
+      setState(s);
+      setError(null);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }, [initial.root]);
 
-  return { project, state, error, loading, load, refresh, setProject };
+  useEffect(() => {
+    api.projectState(initial.root, lang()).then(setState).catch((e) => setError(errorText(e)));
+  }, [initial.root]);
+
+  return { project, state, error, refresh };
 }

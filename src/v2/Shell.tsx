@@ -10,10 +10,12 @@ import { relTime, t } from "./i18n";
 import { versionSource } from "./versions";
 import { useAppVersion } from "./pages/Personal";
 import { openSettings } from "./pages/Settings";
+import { Wizard } from "./pages/Detect";
+import { ProjectMenu, type Switcher } from "./ProjectMenu";
 
 const isMac = navigator.userAgent.includes("Mac");
 
-export function Shell({ title, children, onSwitchProject }: { title: string; children: ReactNode; onSwitchProject: () => void }) {
+export function Shell({ title, children, sw }: { title: string; children: ReactNode; sw: Switcher }) {
   const ws = useWs();
   const { manifest: m, env, page, go } = ws;
   const version = useAppVersion();
@@ -48,7 +50,8 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
           <span className="ml-auto" />
           <button className="ib !size-7" title={t("Sidebar")}><PanelLeft size={16} /></button>
         </div>
-        <button className="raise mb-2 flex items-center gap-3 px-3 py-2.5 text-left" onClick={onSwitchProject} title={t("Open another project")}>
+        <div className="mb-2">
+        <ProjectMenu sw={sw} className="raise flex w-full items-center gap-3 px-3 py-2.5 text-left">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg text-[13px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c6cff,#4a8cff)" }}>
             {(m.name || ws.project.name).slice(0, 1).toUpperCase()}
           </span>
@@ -57,7 +60,8 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
             <span className="block truncate text-[11.5px] text-fg-3">{m.environments.length === 1 ? t("1 server") : t("{n} servers", { n: m.environments.length })}</span>
           </span>
           <ChevronsUpDown size={16} className="text-fg-3" />
-        </button>
+        </ProjectMenu>
+        </div>
 
         <div className="scroll min-h-0 flex-1 overflow-auto">
           <div className="nav-h">{t("Operations")}</div>
@@ -137,7 +141,8 @@ function AutoBar() {
   const ws = useWs();
   const a = ws.state.auto!;
   const [busy, setBusy] = useState(false);
-  const from = a.template === "makefile-convention" ? t("your Makefile ({a} of {b} targets)", { a: a.matched, b: a.total }) : t("your playbooks");
+  const [review, setReview] = useState(false);
+  const from = (a.sources?.length ? a.sources : [a.template === "makefile-convention" ? "Makefile" : "playbooks"]).join(", ");
   async function save() {
     setBusy(true);
     try {
@@ -153,9 +158,10 @@ function AutoBar() {
   return (
     <div className="flex shrink-0 items-center gap-3 border-b hair px-5 py-2 text-[12.5px]" style={{ background: "color-mix(in srgb, var(--w-accent) 9%, transparent)" }}>
       <Sparkles size={14} className="shrink-0 text-accent" />
-      <span className="min-w-0 flex-1 truncate text-fg-2">{t("Automatic setup, read from {from}. Nothing is saved in the project yet.", { from })}</span>
-      <button className="b b-sm" onClick={() => openSettings(ws.go, "products")}>{t("Review")}</button>
+      <span className="min-w-0 flex-1 truncate text-fg-2">{t("Detected from {from}. Nothing is saved in the project yet.", { from })}</span>
+      <button className="b b-sm" onClick={() => setReview(true)}>{t("Review")}</button>
       <button className="b b-sm b-pri" disabled={busy} onClick={save}>{t("Save ansible-mario.json")}</button>
+      {review && <Wizard root={ws.project.root} name={ws.project.name} toast={ws.toast} autoTemplate={a.template} onClose={() => setReview(false)} onApplied={() => { setReview(false); ws.refresh(); }} />}
     </div>
   );
 }

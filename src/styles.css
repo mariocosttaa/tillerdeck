@@ -113,6 +113,7 @@ button { cursor: default; }
 @layer components {
   .panel { background: var(--w-panel); border-radius: 14px; box-shadow: 0 0 0 1px var(--w-line), 0 20px 50px -20px rgba(0,0,0,.6); }
   .raise { background: var(--w-raise); border-radius: 12px; box-shadow: 0 0 0 1px var(--w-line); }
+  .menu { background: var(--w-panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--w-line-2), 0 18px 40px -12px rgba(0,0,0,.45); font-size: 13px; }
   .hair { border-color: var(--w-line); }
 
   .nav { height: 32px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: var(--w-fg-2); font-size: 13.5px; width: 100%; text-align: left; }

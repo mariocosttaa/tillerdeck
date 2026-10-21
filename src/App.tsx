@@ -1,64 +1,47 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import { ArrowRight, FolderOpen, Wand2 } from "lucide-react";
-import { api, errorText, type MakeTarget, type RunMeta, type RunSpec } from "./api";
-import { useProject, useRuns } from "./v2/store";
-import { WsProvider, type Page, type Ws } from "./v2/context";
-import { Shell } from "./v2/Shell";
-import { Confirm, Modal, Toast, type ConfirmSpec } from "./v2/ui";
-import { LogPanel, RunCard } from "./v2/RunViews";
-import { Palette } from "./v2/Palette";
-import { DeployDialog, type DeployRequest } from "./v2/DeployDialog";
-import { Builds } from "./v2/pages/Builds";
-import { Notifications } from "./v2/pages/Notifications";
-import { Services } from "./v2/pages/Services";
-import { Promote } from "./v2/pages/Promote";
-import { Backups, Machine } from "./v2/pages/Ops";
-import { Runs } from "./v2/pages/Runs";
-import { Settings, Wizard } from "./v2/pages/Settings";
-import Workspace from "./legacy/Workspace";
+import { ArrowRight, FolderOpen } from "lucide-react";
+import { api, errorText, type Project } from "./api";
+import { useRuns } from "./v2/store";
+import { Modal, Toast } from "./v2/ui";
+import { ProjectView } from "./v2/ProjectView";
+import type { Switcher } from "./v2/ProjectMenu";
 import { applyTheme, loadPrefs, savePrefs, type Prefs } from "./v2/prefs";
 import { setLang, t } from "./v2/i18n";
 
 const RECENTS = "ansible-mario.recents";
-const recents = (): string[] => {
+/** Os projectos abertos e o da frente, para os voltar a abrir no arranque. */
+const OPEN = "ansible-mario.open";
+const read = <T,>(key: string, fallback: T): T => {
   try {
-    return JSON.parse(localStorage.getItem(RECENTS) ?? "[]");
+    return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback;
   } catch {
-    return [];
+    return fallback;
   }
 };
+const write = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* sem armazenamento */
+  }
+};
+const recents = (): string[] => read<string[]>(RECENTS, []);
 const isMac = navigator.userAgent.includes("Mac");
 const mod = (e: KeyboardEvent) => (isMac ? e.metaKey : e.ctrlKey);
 
 export default function App() {
-  const proj = useProject();
-  const runs = useRuns();
+  const store = useRuns();
   const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
-  const [page, setPage] = useState<Page>("servicos");
-  const [envId, setEnvId] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
-  const [focus, setFocus] = useState<string | null>(null);
-  const [logOpen, setLogOpen] = useState(false);
-  const [palette, setPalette] = useState(false);
-  const [deploy, setDeploy] = useState<DeployRequest | null>(null);
-  const [makeInfo, setMakeInfo] = useState<Map<string, MakeTarget>>(new Map());
-  const [makeVars, setMakeVars] = useState<{ name: string; value: string }[]>([]);
-  const [maint, setMaint] = useState<Record<string, Record<string, boolean>>>({});
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshedAt, setRefreshedAt] = useState(Date.now());
   const [quit, setQuit] = useState<{ running: number; dirty: boolean } | null>(null);
-  const [skipWizard, setSkipWizard] = useState(false);
-  // Boas-vindas a um projecto sem ansible-mario.json: uma vez por projecto.
-  const [welcomed, setWelcomed] = useState<Record<string, boolean>>({});
-  const welcomeKey = (root: string) => `ansible-mario.welcomed.${root}`;
-  const [filesOpened, setFilesOpened] = useState(false);
-  useEffect(() => {
-    if (page === "ficheiros") setFilesOpened(true);
-  }, [page]);
+  // Vários projectos abertos ao mesmo tempo; um à frente.
+  const [open, setOpen] = useState<Project[]>([]);
+  const [active, setActive] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [closing, setClosing] = useState<{ root: string; running: number; dirty: boolean } | null>(null);
 
   const say = useCallback((text: string, bad?: boolean) => setToast({ text, bad }), []);
   const setPrefs = useCallback((p: Prefs) => {
@@ -66,165 +49,99 @@ export default function App() {
     applyTheme(p.theme);
     setLang(p.lang);
     setPrefsState(p);
-
   }, []);
 
-  const open = useCallback(async (path: string) => {
-    const p = await proj.load(path);
-    if (!p) return;
-    localStorage.setItem(RECENTS, JSON.stringify([p.root, ...recents().filter((r) => r !== p.root)].slice(0, 8)));
-    setPage("servicos");
-    setSelected(null);
-    setSkipWizard(false);
-    setFilesOpened(false);
-    setMaint({});
-    setEnvId(localStorage.getItem(`ansible-mario.env.${p.root}`));
-  }, [proj.load]);
-
-  async function pick() {
-    const dir = await openDialog({ directory: true, title: t("Open an Ansible project") });
-    if (typeof dir === "string") open(dir);
-  }
-
   useEffect(() => {
-    api.initialProject().then((p) => {
-      if (p) open(p);
+    if (open.length) write(OPEN, { roots: open.map((p) => p.root), active });
+  }, [open, active]);
+
+  const openPath = useCallback(async (path: string, front = true) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const p = await api.openProject(path);
+      write(RECENTS, [p.root, ...recents().filter((r) => r !== p.root)].slice(0, 8));
+      setOpen((list) => (list.some((x) => x.root === p.root) ? list : [...list, p]));
+      if (front) setActive(p.root);
+      return p;
+    } catch (e) {
+      setError(errorText(e));
+      say(errorText(e), true);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [say]);
+
+  const pick = useCallback(async () => {
+    const dir = await openDialog({ directory: true, title: t("Open an Ansible project") });
+    if (typeof dir === "string") openPath(dir);
+  }, [openPath]);
+
+  const runningIn = useCallback((root: string) => Object.values(store.runs).filter((r) => r.running && r.entry.root === root).length, [store.runs]);
+
+  const doClose = useCallback((root: string) => {
+    setOpen((list) => {
+      const i = list.findIndex((p) => p.root === root);
+      const next = list.filter((p) => p.root !== root);
+      setActive((a) => (a === root ? next[Math.min(i, next.length - 1)]?.root ?? null : a));
+      if (!next.length) write(OPEN, { roots: [], active: null });
+      return next;
     });
+  }, []);
+
+  // Fechar um projecto com corridas ou ficheiros por gravar pergunta primeiro.
+  // As corridas continuam (são do backend) e ficam nas Execuções.
+  const close = useCallback(async (root: string) => {
+    const running = runningIn(root);
+    const dirty = (await api.dirtyRoots().catch(() => [] as string[])).includes(root);
+    if (running || dirty) setClosing({ root, running, dirty });
+    else doClose(root);
+  }, [runningIn, doClose]);
+
+  // No arranque: os que estavam abertos, mais o da linha de comandos.
+  useEffect(() => {
+    (async () => {
+      const saved = read<{ roots: string[]; active: string | null }>(OPEN, { roots: [], active: null });
+      const cli = await api.initialProject().catch(() => null);
+      for (const r of saved.roots) await openPath(r, false);
+      if (cli) await openPath(cli);
+      else if (saved.active) setActive(saved.active);
+      setActive((a) => a ?? saved.roots[0] ?? null);
+      setError(null);
+    })();
     const un = listen<{ running: number; dirty: boolean }>("quit-blocked", (e) => setQuit(e.payload));
     return () => {
       un.then((f) => f());
     };
   }, []);
 
+  // um projecto que já não existe sai da lista
+  useEffect(() => {
+    if (active && open.length && !open.some((p) => p.root === active)) setActive(open[0].root);
+  }, [open, active]);
+
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (mod(e) && e.key === "o") { e.preventDefault(); pick(); }
-      if (mod(e) && e.key === "k") { e.preventDefault(); setPalette((x) => !x); }
+      // ⌘1…⌘9: o n-ésimo projecto aberto
+      if (mod(e) && /^[1-9]$/.test(e.key)) {
+        const p = open[Number(e.key) - 1];
+        if (p) { e.preventDefault(); setActive(p.root); }
+      }
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, []);
+  }, [pick, open]);
 
-  // Os alvos do Makefile (receita, trava) e as variáveis `VAR ?=`.
-  useEffect(() => {
-    if (!proj.project) return;
-    const root = proj.project.root;
-    api.makeTargets(root).then((x) => setMakeInfo(new Map(x.map((y) => [y.name, y]))));
-    api.readFile(root, "Makefile")
-      .then((text) => setMakeVars([...text.matchAll(/^([A-Z][A-Z0-9_]*)[ \t]*\?=[ \t]*(.*)$/gm)].filter((x) => x[1] !== "CONFIRM").map((x) => ({ name: x[1], value: x[2].trim() }))))
-      .catch(() => setMakeVars([]));
-  }, [proj.project?.root]);
-
-  const m = proj.state?.manifest ?? null;
-  const env = m ? m.environments.find((e) => e.id === envId) ?? m.environments[0] : null;
-
-  // O estado de manutenção de cada inventário em uso (servidores e placements).
-  const inventories = useMemo(
-    () => (m ? [...new Set([...m.environments.map((e) => e.inventory), ...m.products.flatMap((p) => Object.values(p.placements ?? {}).map((x) => x.inventory))])] : []),
-    [m],
-  );
-  const loadMaint = useCallback(async () => {
-    if (!proj.project) return;
-    const root = proj.project.root;
-    const out: Record<string, Record<string, boolean>> = {};
-    await Promise.all(inventories.map((inv) => api.maintenanceState(root, inv).then((x) => (out[inv] = x)).catch(() => {})));
-    setMaint(out);
-  }, [proj.project?.root, inventories.join("|")]);
-  useEffect(() => {
-    loadMaint();
-  }, [loadMaint]);
-
-  /** Actualizar: só leituras locais — releases, histórico, inventário. Nunca SSH. */
-  // os nomes do template automático vêm na língua escolhida
-  useEffect(() => {
-    if (proj.state?.auto) proj.refresh();
-  }, [prefs.lang]);
-
-  const refresh = useCallback(async () => {
-    if (!proj.project) return;
-    setRefreshing(true);
-    try {
-      await Promise.all([proj.refresh(), loadMaint(), api.runHistory().then(runs.setHistory)]);
-      setRefreshedAt(Date.now());
-    } catch (e) {
-      say(errorText(e), true);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [proj.refresh, loadMaint]);
-
-  useEffect(() => {
-    if (!proj.project || !prefs.refreshMin) return;
-    const id = window.setInterval(refresh, prefs.refreshMin * 60_000);
-    const onFocus = () => Date.now() - refreshedAt > 30_000 && refresh();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [proj.project?.root, prefs.refreshMin, refresh, refreshedAt]);
-
-  const ws: Ws | null = useMemo(() => {
-    if (!proj.project || !proj.state || !m || !env) return null;
-    const root = proj.project.root;
-    return {
-      project: proj.project,
-      state: proj.state,
-      manifest: m,
-      env,
-      setEnv: (id: string) => {
-        setEnvId(id);
-        localStorage.setItem(`ansible-mario.env.${root}`, id);
-      },
-      page,
-      go: setPage,
-      targets: new Set(proj.state.targets),
-      makeInfo,
-      makeVars,
-      runs: runs.runs,
-      history: runs.history,
-      focusRun: (id: string | null) => {
-        if (id && !runs.runs[id]) {
-          const h = runs.history.find((x) => x.id === id);
-          if (h) runs.openLog(h);
-        }
-        setFocus(id);
-        setLogOpen(!!id);
-      },
-      start: async (spec: RunSpec, meta: RunMeta) => {
-        try {
-          const e = await runs.start(root, spec, meta);
-          setFocus(e.id);
-          return e;
-        } catch (err) {
-          say(errorText(err), true);
-          return null;
-        }
-      },
-      waitExit: runs.waitExit,
-      openLog: runs.openLog,
-      confirm: setConfirm,
-      toast: say,
-      refresh,
-      refreshing,
-      refreshedAt,
-      selected,
-      select: setSelected,
-      openPalette: () => setPalette(true),
-      prefs,
-      setPrefs,
-      maint,
-      openDeploy: setDeploy,
-    };
-  }, [proj.project, proj.state, m, env, page, makeInfo, makeVars, runs.runs, runs.history, selected, prefs, maint, refreshing, refreshedAt, refresh]);
-
-  // Depois de uma corrida acabar, o estado (releases, manutenção) relê-se.
-  useEffect(() => {
-    const un = listen("run-exit", () => window.setTimeout(() => refresh(), 400));
-    return () => {
-      un.then((f) => f());
-    };
-  }, [refresh]);
+  const sw: Switcher = useMemo(() => ({
+    open: open.map((p) => ({ root: p.root, name: p.name, running: runningIn(p.root) })),
+    active: active ?? "",
+    recents: recents(),
+    switchTo: setActive,
+    close,
+    openPath: (path?: string) => (path ? openPath(path) : pick()),
+  }), [open, active, runningIn, close, openPath, pick]);
 
   // O aviso ao sair existe em todos os ecrãs: o Rust bloqueia o ⌘Q sempre
   // que há corridas ou ficheiros por gravar, esteja onde estiver.
@@ -242,25 +159,39 @@ export default function App() {
     </Modal>
   );
   const toastEl = toast && <Toast text={toast.text} bad={toast.bad} onClose={() => setToast(null)} />;
+  const closingName = closing && open.find((p) => p.root === closing.root)?.name;
+  const closeModal = closing && (
+    <Modal onClose={() => setClosing(null)} width={460}>
+      <div className="p-6">
+        <p className="text-[16px] font-semibold">{t("Close {name}?", { name: closingName ?? "" })}</p>
+        {closing.running > 0 && <p className="mt-2 text-[13px] text-fg-2">{t("{n} run(s) in progress. They keep running, and stay in Runs when you open the project again.", { n: closing.running })}</p>}
+        {closing.dirty && <p className="mt-2 text-[13px] text-warn">{t("There are files with unsaved changes.")}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="b b-pri" autoFocus onClick={() => setClosing(null)}>{t("Cancel")}</button>
+          <button className="b" onClick={() => { doClose(closing.root); setClosing(null); }}>{closing.dirty ? t("Close without saving") : t("Close")}</button>
+        </div>
+      </div>
+    </Modal>
+  );
 
   // ---------------------------------------------------------------- sem projecto
-  if (!proj.project) {
+  if (!open.length) {
     return (
       <div className="flex h-full items-center justify-center p-8" data-tauri-drag-region>
         <div className="panel am-in w-[560px] p-8" style={{ background: "var(--w-panel)" }}>
           <span className="grid size-12 place-items-center rounded-2xl text-[20px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c6cff,#4a8cff)" }}>A</span>
           <h1 className="mt-5 text-[24px] font-semibold tracking-tight">Ansible Mario</h1>
           <p className="mt-1 text-fg-2">{t("Your playbooks as an app: services, promotion, backups and machines, with the Ansible you already have.")}</p>
-          <button className="b b-pri mt-6 h-11 w-full justify-center text-[14px]" onClick={pick} disabled={proj.loading}>
-            <FolderOpen size={17} />{proj.loading ? t("Opening…") : t("Open project")}<span className="kbd ml-2 !bg-white/15 !text-white/80">{isMac ? "⌘O" : "Ctrl O"}</span>
+          <button className="b b-pri mt-6 h-11 w-full justify-center text-[14px]" onClick={pick} disabled={loading}>
+            <FolderOpen size={17} />{loading ? t("Opening…") : t("Open project")}<span className="kbd ml-2 !bg-white/15 !text-white/80">{isMac ? "⌘O" : "Ctrl O"}</span>
           </button>
-          {proj.error && <p className="mt-3 text-[12.5px] text-danger selectable">{proj.error}</p>}
+          {error && <p className="mt-3 text-[12.5px] text-danger selectable">{error}</p>}
           {recents().length > 0 && (
             <>
               <p className="sec-h mb-2 mt-7">{t("Recent")}</p>
               <div className="space-y-1">
                 {recents().map((r) => (
-                  <button key={r} className="row flex w-full items-center gap-3 px-3 py-2 text-left" onClick={() => open(r)}>
+                  <button key={r} className="row flex w-full items-center gap-3 px-3 py-2 text-left" onClick={() => openPath(r)}>
                     <span className="grid size-8 place-items-center rounded-lg bg-raise-2 text-[13px] font-semibold">{r.split("/").pop()?.slice(0, 1).toUpperCase()}</span>
                     <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.split("/").pop()}</span><span className="block truncate text-[12px] text-fg-3">{r}</span></span>
                     <ArrowRight size={15} className="text-fg-3" />
@@ -281,78 +212,14 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------- projecto sem manifesto
-  if (!ws) {
-    const p = proj.project;
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex h-[52px] shrink-0 items-center gap-3 pl-[88px] pr-4" data-tauri-drag-region>
-          <span className="font-semibold">{p.name}</span>
-          {proj.state?.manifestError && <span className="text-[12px] text-danger">{proj.state.manifestError}</span>}
-          <span className="ml-auto" />
-          <button className="b b-sm" onClick={() => setSkipWizard(false)}><Wand2 size={14} />{t("Apply template")}</button>
-          <button className="b b-sm" onClick={pick}><FolderOpen size={14} />{t("Another project")}</button>
-        </div>
-        <div className="min-h-0 flex-1 px-2 pb-2">
-          <div className="panel h-full overflow-hidden"><Workspace initial={p} /></div>
-        </div>
-        {!skipWizard && <Wizard first root={p.root} name={p.name} toast={say} onClose={() => setSkipWizard(true)} onApplied={() => proj.refresh()} />}
-        {quitModal}
-        {toastEl}
-      </div>
-    );
-  }
-
-  // --------------------------------------------------------------- a app v2
-  const titles: Record<string, string> = { servicos: t("Services"), builds: t("Builds"), notificacoes: t("Notifications"), promover: t("Promote"), backups: t("Backups"), maquina: t("Machine"), execucoes: t("Runs"), definicoes: t("Settings"), ficheiros: t("Files") };
-  const product = page.startsWith("produto:") ? ws.manifest.products.find((p) => `produto:${p.id}` === page) : undefined;
-  const focusedRun = focus ? runs.runs[focus] : undefined;
-
   return (
-    <WsProvider value={ws}>
-      <Shell title={product ? product.label : titles[page]} onSwitchProject={pick}>
-        {page === "servicos" && <Services />}
-        {product && <Services productId={product.id} />}
-        {page === "builds" && <Builds />}
-        {page === "notificacoes" && <Notifications />}
-        {page === "promover" && <Promote />}
-        {page === "backups" && <Backups />}
-        {page === "maquina" && <Machine />}
-        {page === "execucoes" && <Runs />}
-        {page === "definicoes" && <Settings />}
-        {/* Fica montado depois da primeira visita: sair dos Ficheiros não
-            pode deitar fora os separadores nem as alterações por gravar. */}
-        {filesOpened && (
-          <div className={page === "ficheiros" ? "relative min-w-0 flex-1" : "hidden"}>
-            <Workspace key={ws.project.root} initial={ws.project} />
-          </div>
-        )}
-        {focusedRun && !logOpen && <RunCard run={focusedRun} onLog={() => setLogOpen(true)} onClose={() => setFocus(null)} />}
-        {focusedRun && logOpen && <LogPanel run={focusedRun} onClose={() => setLogOpen(false)} />}
-      </Shell>
-      {confirm && <Confirm spec={confirm} onClose={() => setConfirm(null)} />}
-      {palette && <Palette onClose={() => setPalette(false)} />}
-      {ws.state.auto && !welcomed[ws.project.root] && !(() => { try { return localStorage.getItem(welcomeKey(ws.project.root)); } catch { return null; } })() && (
-        <Wizard
-          first
-          autoTemplate={ws.state.auto.template}
-          root={ws.project.root}
-          name={ws.project.name}
-          toast={say}
-          onClose={() => {
-            try { localStorage.setItem(welcomeKey(ws.project.root), "1"); } catch { /* sem armazenamento */ }
-            setWelcomed((w) => ({ ...w, [ws.project.root]: true }));
-          }}
-          onApplied={() => {
-            try { localStorage.setItem(welcomeKey(ws.project.root), "1"); } catch { /* sem armazenamento */ }
-            setWelcomed((w) => ({ ...w, [ws.project.root]: true }));
-            proj.refresh();
-          }}
-        />
-      )}
-      {deploy && <DeployDialog key={`${deploy.p.id}.${deploy.s.id}.${deploy.action}.${deploy.preset ?? ""}`} req={deploy} onClose={() => setDeploy(null)} />}
+    <>
+      {open.map((p) => (
+        <ProjectView key={p.root} initial={p} active={p.root === active} store={store} prefs={prefs} setPrefs={setPrefs} say={say} sw={sw} />
+      ))}
+      {closeModal}
       {quitModal}
       {toastEl}
-    </WsProvider>
+    </>
   );
 }
