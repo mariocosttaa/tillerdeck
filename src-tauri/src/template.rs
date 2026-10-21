@@ -233,6 +233,22 @@ fn environments(root: &Path, lang: &str) -> Vec<Environment> {
     envs
 }
 
+/// O repositório git de uma app ao lado do projecto (`../decidido-api`) e a
+/// branch principal do remote (`origin/master`), que é onde estão os commits
+/// que se podem instalar — não a branch em que a cópia local estiver.
+fn sibling_repo(root: &Path, name: &str) -> Option<(String, Option<String>)> {
+    let dir = root.parent()?.join(name);
+    if !dir.join(".git").exists() {
+        return None;
+    }
+    let branch = crate::shell::run("git", &["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], &dir)
+        .ok()
+        .filter(|o| o.ok)
+        .map(|o| o.stdout.trim().to_string())
+        .filter(|b| !b.is_empty());
+    Some((format!("../{name}"), branch))
+}
+
 /// O formato de uma tag a partir de um exemplo do release:
 /// `1.17.0-staging-4be19d2-0a41dcef` → `{version}-{env}-{commit}-{build}`.
 pub fn guess_tag_format(tag: &str, env: &str) -> Option<String> {
@@ -386,7 +402,12 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
                     s.image = Some(s.label.clone());
                 }
                 let sample = rel.iter().find_map(|(env, m)| m.get(&k).map(|v| (env.clone(), v.clone())));
-                if let (Some(_), Some((env, v))) = (&s.image, sample) {
+                // um commit completo no release e o repositório da app ao lado: as versões são commits
+                let full_sha = sample.as_ref().is_some_and(|(_, v)| v.len() == 40 && v.chars().all(|c| c.is_ascii_hexdigit()));
+                let repo = s.image.as_deref().filter(|_| full_sha).and_then(|name| sibling_repo(root, name));
+                if let Some((repo, branch)) = repo {
+                    s.versions = Some(crate::manifest::Versions { source: "git".into(), repo: Some(repo), branch, commit_format: Some("full".into()), ..Default::default() });
+                } else if let (Some(_), Some((env, v))) = (&s.image, sample) {
                     s.versions = Some(crate::manifest::Versions { source: "registry".into(), tag_format: guess_tag_format(&v, &env), ..Default::default() });
                 }
                 s.release_key = Some(k);
@@ -778,7 +799,7 @@ mod tests {
                 for s in &p.services {
                     println!("    {:<16} {:<8} key={:<16} img={:?} perEnv={} acções={:?}", s.label, s.kind, s.release_key.clone().unwrap_or("-".into()), s.image, s.per_env_image,
                         s.actions.iter().map(|(k, a)| format!("{k}{}{}", if a.envs.is_empty() { String::new() } else { format!("{:?}", a.envs) }, if a.includes_deploy { "+deploy" } else { "" })).collect::<Vec<_>>());
-                    if let Some(v) = &s.versions { println!("      versões: {} {:?}", v.source, v.tag_format); }
+                    if let Some(v) = &s.versions { println!("      versões: {} {:?} {:?} {:?}", v.source, v.tag_format, v.repo, v.branch); }
                 }
             }
             for o in &r.manifest.operations {
