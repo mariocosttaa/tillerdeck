@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight, CircleCheck, CircleX, Construction, Ellipsis, Equal, FileCode2, GitCompareArrows, Lock, Rocket, Sparkles, Undo2,
+  ArrowRight, CircleCheck, CircleX, Construction, Ellipsis, FileCode2, GitCompareArrows, Lock, Rocket, Sparkles, Undo2,
 } from "lucide-react";
 import { api, errorText, type Product, type Revision, type Service } from "../../api";
 import { ACTION_META, canRun, runServiceAction, useWs } from "../context";
@@ -122,7 +122,6 @@ export function Services({ productId }: { productId?: string }) {
                 </div>
                 {infra.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
-                    {appRows.length > 0 && <span className="mr-1 text-[12px] text-fg-3">Infra</span>}
                     {infra.map((s) => {
                       const key = serviceKey(p, s);
                       return (
@@ -180,26 +179,20 @@ function Row({ p, s, other, rel, orel, maint, selected }: { p: Product; s: Servi
   );
 
   return (
-    <div className={`row ${selected ? "sel" : ""} grid grid-cols-[minmax(190px,1fr)_auto_minmax(160px,1fr)_80px_136px] items-center gap-4 px-3 py-2.5`} onClick={() => ws.select(key)}>
-      <div className="flex min-w-0 items-center gap-3">
+    <div className={`row group flex items-center gap-4 px-3 py-2.5 ${selected ? "sel" : ""}`} onClick={() => ws.select(key)}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <TechIcon kind={s.kind} />
         <div className="min-w-0">
           <p className="truncate whitespace-nowrap text-[14px] font-medium">{s.label}</p>
-          <p className="whitespace-nowrap text-[12px] text-fg-3">{techLabel(s.kind)}</p>
+          <p className="truncate whitespace-nowrap text-[12px] text-fg-3">{techLabel(s.kind)}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="chip-env"><EnvDot env={env} size={6} /><span className="font-mono">{tag ? shortVersion(tag) : "—"}</span></span>
-        {otherEnv && (
-          <>
-            {d === 0 ? <Equal size={15} className="shrink-0 text-fg-3" /> : <ArrowRight size={15} className="shrink-0" style={{ color: (d ?? 1) > 0 ? "var(--w-accent)" : "var(--env-staging)" }} />}
-            <span className={`chip-env ${d === 0 ? "opacity-60" : ""}`}><EnvDot env={otherEnv} size={6} /><span className="font-mono">{ot ? shortVersion(ot) : "—"}</span></span>
-          </>
-        )}
-      </div>
-      <div>{status}</div>
-      <div className="whitespace-nowrap text-[12.5px] text-fg-2">{last?.endedAt ? relTime(last.endedAt) : "—"}</div>
-      <div className={`flex items-center justify-end gap-1 ${selected ? "" : "opacity-0"}`}>
+      <span className="chip-env shrink-0" title={otherEnv && ot && d !== 0 ? `${otherEnv.label}: ${shortVersion(ot)}` : undefined}>
+        <EnvDot env={env} size={6} /><span className="font-mono">{tag ? shortVersion(tag) : "—"}</span>
+      </span>
+      <div className="w-[150px] shrink-0">{status}</div>
+      <div className="hidden w-[72px] shrink-0 whitespace-nowrap text-[12.5px] text-fg-2 min-[1320px]:block">{last?.endedAt ? relTime(last.endedAt) : "—"}</div>
+      <div className={`flex w-[96px] shrink-0 items-center justify-end gap-1 ${selected ? "" : "opacity-0 group-hover:opacity-100"}`}>
         {canRun(ws, s, "deploy") && (
           <button className={`b b-sm ${env.protected ? "b-prod" : "b-pri"}`} onClick={(e) => { e.stopPropagation(); runServiceAction(ws, p, s, "deploy"); }}>
             <Rocket size={14} />Deploy
@@ -222,7 +215,7 @@ function Inspector({ p, s, other, maint }: { p: Product; s: Service; other?: str
   const mk = maintenanceKey(s);
   const closed = mk ? maint[mk] : undefined;
   const activity = ws.history.filter((h) => h.root === ws.project.root && h.meta?.service === key).slice(0, 6);
-  const acts = ["migrate", "seed", closed ? "maintenanceOff" : "maintenanceOn"].filter((a) => s.actions[a]);
+  const acts = ["migrate", "seed", "maintenanceOn", "maintenanceOff"].filter((a) => s.actions[a]);
 
   return (
     <aside className="scroll w-[372px] shrink-0 overflow-auto border-l hair px-5 pb-6 pt-5">
@@ -315,7 +308,7 @@ function Inspector({ p, s, other, maint }: { p: Product; s: Service; other?: str
             return (
               <button key={h.id} className="relative block w-full text-left" onClick={() => ws.focusRun(h.id)}>
                 <span className="absolute -left-5 top-1 size-[11px] rounded-full" style={{ background: !h.endedAt ? "var(--w-accent)" : ok ? "var(--ok)" : h.cancelled ? "var(--warn)" : "var(--danger)", boxShadow: "0 0 0 3px var(--w-panel)" }} />
-                <p className="font-medium">{h.meta?.title.split(" · ")[0]}{h.meta?.version ? ` ${shortVersion(h.meta.version)}` : ""} {e && <span className="font-normal text-fg-3">· {e.label}</span>}</p>
+                <p className="font-medium">{h.meta?.title.split(" · ")[0]}{h.meta?.action === "deploy" && h.meta?.version ? ` ${shortVersion(h.meta.version)}` : ""} {e && <span className="font-normal text-fg-3">· {e.label}</span>}</p>
                 <p className="text-fg-3">{relTime(h.startedAt)}{h.endedAt && !ok ? (h.cancelled ? " · cancelada" : " · falhou") : ""}</p>
               </button>
             );
