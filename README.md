@@ -146,11 +146,13 @@ Download from the [latest release](https://github.com/mariocosttaa/tillerdeck/re
 **macOS (Apple Silicon)**
 
 1. Open `Tillerdeck-2.1.0-macos-arm64.dmg` (or the `.zip`) and drag **Tillerdeck.app** to `/Applications`.
-2. The app is not signed with an Apple Developer ID yet, so allow it once:
+2. The app is not notarised by Apple yet, so the first open shows *"Apple could not verify Tillerdeck"*. Allow it once, either way:
+   - **System Settings → Privacy & Security**, scroll down, **Open Anyway**; or
+   - in the terminal:
 
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/Tillerdeck.app"
-   ```
+     ```bash
+     xattr -dr com.apple.quarantine "/Applications/Tillerdeck.app"
+     ```
 
 **Linux (x86_64 or arm64)**
 
