@@ -29,8 +29,32 @@
   color-scheme: light;
 }
 
+:root[data-theme="dark"] {
+    --bg: #18191b;
+    --panel: #1e1f22;
+    --side: #151618;
+    --line: #2e3034;
+    --text: #e6e6e3;
+    --muted: #8e8f8a;
+    --primary: #3b82f6;
+    --ok: #3fb950;
+    --warn-bg: #3a2e0b;
+    --warn-text: #f2cc60;
+    --danger: #f85149;
+    --hover: rgba(255, 255, 255, 0.05);
+    --active: rgba(59, 130, 246, 0.18);
+    --console: #0c0d0e;
+    --k-playbook: #58a6ff;
+    --k-inventory: #bc8cff;
+    --k-release: #3fb950;
+    --k-vault: #f85149;
+    --k-vars: #d29922;
+    --k-role: #8b949e;
+    --k-config: #39c5cf;
+    color-scheme: dark;
+  }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme="auto"] {
     --bg: #18191b;
     --panel: #1e1f22;
     --side: #151618;
