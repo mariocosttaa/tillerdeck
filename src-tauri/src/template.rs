@@ -25,7 +25,7 @@ const VERBS: &[&str] = &[
     "audit-security", "deploy", "provision", "restore", "snapshots", "logs", "status", "ping", "history", "test", "reset",
 ];
 const TECHS: &[&str] = &["nestjs-worker", "nestjs", "nextjs", "vite", "nginx", "postgres", "redis", "mysql", "mongodb", "node", "worker"];
-const KEY_SUFFIXES: &[&str] = &["_tag", "_commit", "_version", "_image"];
+pub(crate) const KEY_SUFFIXES: &[&str] = &["_tag", "_commit", "_version", "_image"];
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,21 +37,13 @@ pub struct Report {
     pub manifest: Manifest,
     pub unmatched: Vec<String>,
     pub warnings: Vec<String>,
-}
-
-/// O template que mais percebe o projecto: a convenção do Makefile se
-/// reconhece alguma coisa, senão um botão por playbook. Nunca vem vazio —
-/// no pior caso, os servidores dos inventários.
-pub fn best(root: &Path, lang: &str) -> Report {
-    let make = makefile_convention(root, lang);
-    if make.compatible && make.matched > 0 {
-        return make;
-    }
-    let books = playbooks_only(root, lang);
-    if books.compatible || books.manifest.products.iter().any(|p| !p.services.is_empty()) {
-        return books;
-    }
-    if make.manifest.environments.len() >= books.manifest.environments.len() { make } else { books }
+    /// De onde veio cada coisa (`svc:shop/api` → "role postgresql em playbooks/db.yml").
+    /// Só para a revisão — nunca vai para o ficheiro.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub evidence: BTreeMap<String, Vec<String>>,
+    /// O que se leu: `Makefile`, `playbooks`, `roles`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
 }
 
 fn kind_of(tech: &str) -> &'static str {
@@ -84,7 +76,7 @@ fn role_of(tech: &str) -> &'static str {
     }
 }
 
-fn kind_label(kind: &str) -> &'static str {
+pub(crate) fn kind_label(kind: &str) -> &'static str {
     match kind {
         "nestjs" => "API NestJS",
         "worker" => "Worker",
@@ -99,7 +91,7 @@ fn kind_label(kind: &str) -> &'static str {
     }
 }
 
-fn env_meta(id: &str, lang: &str) -> (String, String, bool) {
+pub(crate) fn env_meta(id: &str, lang: &str) -> (String, String, bool) {
     let l = id.to_lowercase();
     if l.contains("prod") {
         (if lang == "pt" { "Produção" } else { "Production" }.into(), "production".into(), true)
@@ -112,12 +104,12 @@ fn env_meta(id: &str, lang: &str) -> (String, String, bool) {
     }
 }
 
-fn capitalize(s: &str) -> String {
+pub(crate) fn capitalize(s: &str) -> String {
     let mut c = s.chars();
     c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
 }
 
-fn name_like(s: &str) -> bool {
+pub(crate) fn name_like(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
 }
 
@@ -167,7 +159,7 @@ fn op_label(verb: &str, rest: &str, lang: &str) -> String {
     if r.is_empty() { v.to_string() } else { format!("{v} {}", r.replace('-', " ")) }
 }
 
-fn env_rank(color: &str) -> u8 {
+pub(crate) fn env_rank(color: &str) -> u8 {
     match color {
         "staging" => 0,
         "production" => 1,
@@ -218,30 +210,57 @@ fn op_group(id: &str, verb: &str, section: &str) -> &'static str {
     "other"
 }
 
-fn release_keys(root: &Path, envs: &[Environment]) -> BTreeMap<String, BTreeMap<String, String>> {
+pub(crate) fn release_keys(root: &Path, envs: &[Environment]) -> BTreeMap<String, BTreeMap<String, String>> {
     envs.iter()
         .filter_map(|e| e.release.as_ref().map(|r| (e.id.clone(), releases::read(root, r).unwrap_or_default())))
         .collect()
 }
 
-/// Lista os ambientes a partir de `inventories/<nome>.ini|yml`.
-fn environments(root: &Path, lang: &str) -> Vec<Environment> {
-    let mut envs = Vec::new();
+/// Lista os ambientes: `inventories/<nome>.ini|yml`, `inventories/<nome>/hosts*`
+/// e, sem pasta de inventários, um `hosts`/`inventory` na raiz.
+pub(crate) fn environments(root: &Path, lang: &str) -> Vec<Environment> {
+    let mut envs: Vec<Environment> = Vec::new();
+    let release_of = |stem: &str| ["yml", "yaml"].iter().map(|x| format!("releases/{stem}.{x}")).find(|r| root.join(r).is_file());
+    let push = |envs: &mut Vec<Environment>, id: &str, inventory: String| {
+        if envs.iter().any(|e| e.id == id) {
+            return;
+        }
+        let (label, color, protected) = env_meta(id, lang);
+        envs.push(Environment { id: id.to_string(), label, inventory, release: release_of(id), color, protected });
+    };
     for dir in ["inventories", "inventory"] {
         let Ok(rd) = fs::read_dir(root.join(dir)) else { continue };
-        for e in rd.flatten() {
-            let p = e.path();
-            if !p.is_file() {
+        let mut entries: Vec<_> = rd.flatten().map(|e| e.path()).collect();
+        entries.sort();
+        for p in entries {
+            let file = p.file_name().unwrap().to_string_lossy().to_string();
+            if p.is_dir() {
+                // `inventories/staging/hosts.yml` — a pasta é o ambiente
+                if matches!(file.as_str(), "group_vars" | "host_vars") {
+                    continue;
+                }
+                let inv = ["hosts", "hosts.ini", "hosts.yml", "hosts.yaml", "inventory", "inventory.ini", "inventory.yml", "inventory.yaml", "main.yml"]
+                    .iter()
+                    .find(|f| p.join(f).is_file());
+                if let Some(f) = inv {
+                    push(&mut envs, &file, format!("{dir}/{file}/{f}"));
+                }
                 continue;
             }
-            let file = p.file_name().unwrap().to_string_lossy().to_string();
             let Some((stem, ext)) = file.rsplit_once('.') else { continue };
             if !matches!(ext, "ini" | "yml" | "yaml") {
                 continue;
             }
-            let (label, color, protected) = env_meta(stem, lang);
-            let release = ["yml", "yaml"].iter().map(|x| format!("releases/{stem}.{x}")).find(|r| root.join(r).is_file());
-            envs.push(Environment { id: stem.to_string(), label, inventory: format!("{dir}/{file}"), release, color, protected });
+            push(&mut envs, stem, format!("{dir}/{file}"));
+        }
+    }
+    if envs.is_empty() {
+        let found = ["hosts", "hosts.ini", "hosts.yml", "hosts.yaml", "inventory", "inventory.ini", "inventory.yml", "inventory.yaml"]
+            .iter()
+            .find(|f| root.join(f).is_file());
+        if let Some(f) = found {
+            let id = if root.join("releases/production.yml").is_file() { "production" } else { "servers" };
+            push(&mut envs, id, f.to_string());
         }
     }
     envs.sort_by(|a, b| (env_rank(&a.color), &a.id).cmp(&(env_rank(&b.color), &b.id)));
@@ -251,7 +270,7 @@ fn environments(root: &Path, lang: &str) -> Vec<Environment> {
 /// O repositório git de uma app ao lado do projecto (`../shop-api`) e a
 /// branch principal do remote (`origin/master`), que é onde estão os commits
 /// que se podem instalar — não a branch em que a cópia local estiver.
-fn sibling_repo(root: &Path, name: &str) -> Option<(String, Option<String>)> {
+pub(crate) fn sibling_repo(root: &Path, name: &str) -> Option<(String, Option<String>)> {
     let dir = root.parent()?.join(name);
     if !dir.join(".git").exists() {
         return None;
@@ -262,6 +281,20 @@ fn sibling_repo(root: &Path, name: &str) -> Option<(String, Option<String>)> {
         .map(|o| o.stdout.trim().to_string())
         .filter(|b| !b.is_empty());
     Some((format!("../{name}"), branch))
+}
+
+/// A partir do valor no release: se a tag traz o ambiente, e de onde vêm as
+/// versões — commits do repositório ao lado (um sha completo) ou o registry.
+pub(crate) fn fill_versions(root: &Path, rel: &BTreeMap<String, BTreeMap<String, String>>, s: &mut Service, k: &str) {
+    s.per_env_image = rel.iter().any(|(env, m)| m.get(k).is_some_and(|v| v.contains(&format!("-{env}-"))));
+    let sample = rel.iter().find_map(|(env, m)| m.get(k).map(|v| (env.clone(), v.clone())));
+    let full_sha = sample.as_ref().is_some_and(|(_, v)| v.len() == 40 && v.chars().all(|c| c.is_ascii_hexdigit()));
+    let repo = s.image.as_deref().filter(|_| full_sha).and_then(|name| sibling_repo(root, name));
+    if let Some((repo, branch)) = repo {
+        s.versions = Some(crate::manifest::Versions { source: "git".into(), repo: Some(repo), branch, commit_format: Some("full".into()), ..Default::default() });
+    } else if let (Some(_), Some((env, v))) = (&s.image, sample) {
+        s.versions = Some(crate::manifest::Versions { source: "registry".into(), tag_format: guess_tag_format(&v, &env), ..Default::default() });
+    }
 }
 
 /// O formato de uma tag a partir de um exemplo do release:
@@ -412,19 +445,10 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
         let found = KEY_SUFFIXES.iter().map(|sfx| format!("{prefix}{}{sfx}", role_of(tech))).find(|k| all_keys.contains(k));
         match found {
             Some(k) => {
-                s.per_env_image = rel.iter().any(|(env, m)| m.get(&k).is_some_and(|v| v.contains(&format!("-{env}-"))));
                 if name_like(&s.label) && s.label.contains('-') {
                     s.image = Some(s.label.clone());
                 }
-                let sample = rel.iter().find_map(|(env, m)| m.get(&k).map(|v| (env.clone(), v.clone())));
-                // um commit completo no release e o repositório da app ao lado: as versões são commits
-                let full_sha = sample.as_ref().is_some_and(|(_, v)| v.len() == 40 && v.chars().all(|c| c.is_ascii_hexdigit()));
-                let repo = s.image.as_deref().filter(|_| full_sha).and_then(|name| sibling_repo(root, name));
-                if let Some((repo, branch)) = repo {
-                    s.versions = Some(crate::manifest::Versions { source: "git".into(), repo: Some(repo), branch, commit_format: Some("full".into()), ..Default::default() });
-                } else if let (Some(_), Some((env, v))) = (&s.image, sample) {
-                    s.versions = Some(crate::manifest::Versions { source: "registry".into(), tag_format: guess_tag_format(&v, &env), ..Default::default() });
-                }
+                fill_versions(root, &rel, s, &k);
                 s.release_key = Some(k);
             }
             None => warnings.push(format!("{} ({product}): nenhuma chave de versão nos releases — preenche à mão", s.label)),
@@ -511,12 +535,15 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
     let variants = by_machine(root, &mut manifest, &sections);
     manifest.variables = detect_variables(root, &envs, &variants);
 
-    Report { template: "makefile-convention".into(), compatible, matched, total, manifest, unmatched, warnings }
+    Report { template: "makefile-convention".into(), compatible, matched, total, manifest, unmatched, warnings, evidence: BTreeMap::new(), sources: vec!["Makefile".into()] }
 }
 
-/// `(nome do host, ansible_host)` do primeiro host de um inventário INI.
-fn inventory_host(root: &Path, inv: &str) -> Option<(String, String)> {
+/// `(nome do host, ansible_host)` do primeiro host de um inventário, INI ou YAML.
+pub(crate) fn inventory_host(root: &Path, inv: &str) -> Option<(String, String)> {
     let text = fs::read_to_string(root.join(inv)).ok()?;
+    if inv.ends_with(".yml") || inv.ends_with(".yaml") || text.trim_start().starts_with("all:") {
+        return crate::detect::yaml_inventory_host(&text);
+    }
     for line in text.lines() {
         let l = line.trim();
         if l.is_empty() || l.starts_with('#') || l.starts_with(';') || l.starts_with('[') {
@@ -534,7 +561,7 @@ fn inventory_host(root: &Path, inv: &str) -> Option<(String, String)> {
 /// é um servidor: passa a produto(s) desse servidor, com o seu inventário e
 /// release (um placement), e as operações dele ficam no servidor com o
 /// alvo já resolvido. Devolve variante → servidor.
-fn by_machine(root: &Path, m: &mut Manifest, sections: &BTreeMap<String, (String, String)>) -> BTreeMap<String, String> {
+pub(crate) fn by_machine(root: &Path, m: &mut Manifest, sections: &BTreeMap<String, (String, String)>) -> BTreeMap<String, String> {
     let all: Vec<String> = m.environments.iter().map(|e| e.id.clone()).collect();
     let host = |id: &str| m.environments.iter().find(|e| e.id == id).and_then(|e| inventory_host(root, &e.inventory)).map(|h| h.1);
     let servers: Vec<String> = m.environments.iter().filter(|e| e.color == "staging" || e.color == "production").map(|e| e.id.clone()).collect();
@@ -647,23 +674,27 @@ fn notify_label(k: &str, key: &str, kind: &str) -> String {
     humanize_key(k.trim_end_matches("_enabled"))
 }
 
-fn humanize_key(k: &str) -> String {
+pub(crate) fn humanize_key(k: &str) -> String {
     capitalize(&k.replace('_', " "))
 }
 
 /// Variáveis que se ajustam na app: o `notify.yml` de cada máquina e as
 /// flags `*_enabled` dos host_vars. Um valor `{{ vault_x }}` é um segredo:
 /// a variável aponta para a chave `vault_x` no vault da mesma pasta.
-fn detect_variables(root: &Path, envs: &[Environment], variants: &BTreeMap<String, String>) -> Vec<Variable> {
+pub(crate) fn detect_variables(root: &Path, envs: &[Environment], variants: &BTreeMap<String, String>) -> Vec<Variable> {
     let mut vars: BTreeMap<String, Variable> = BTreeMap::new();
     let mut order: Vec<String> = Vec::new();
     for e in envs {
         let Some((hostname, _)) = inventory_host(root, &e.inventory) else { continue };
         let inv_dir = Path::new(&e.inventory).parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
-        let dir = format!("{inv_dir}/host_vars/{hostname}");
-        if !root.join(&dir).is_dir() {
+        // `inventories/host_vars/<host>`, `inventories/<env>/host_vars/<host>` ou `host_vars/<host>` na raiz
+        let Some(dir) = [format!("{inv_dir}/host_vars/{hostname}"), format!("host_vars/{hostname}")]
+            .into_iter()
+            .map(|d| d.trim_start_matches('/').to_string())
+            .find(|d| root.join(d).is_dir())
+        else {
             continue;
-        }
+        };
         let (server, suffix) = match variants.get(&e.id) {
             Some(s) => (s.clone(), Some(e.label.clone())),
             None => (e.id.clone(), None),
@@ -770,6 +801,8 @@ pub fn playbooks_only(root: &Path, lang: &str) -> Report {
         },
         unmatched: vec![],
         warnings: vec![],
+        evidence: BTreeMap::new(),
+        sources: vec!["playbooks".into()],
     }
 }
 
