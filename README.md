@@ -208,7 +208,7 @@ What the tests cover:
 To see what the detection makes of your own repositories, read-only:
 
 ```bash
-ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture real_projects
+ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture real_projects_auto
 ```
 
 ## Project structure
