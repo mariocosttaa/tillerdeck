@@ -9,9 +9,10 @@ description: Write or update the ansible-mario.json of an Ansible project (serve
 Makefile targets and playbooks behind buttons. It reads a single file at the root of the infra repo:
 `ansible-mario.json`. This skill writes that file **from what the repository actually has**.
 
-The app can generate a first version itself (Settings → Apply template). Use this skill when the project
-doesn't follow the Makefile convention, when the template got parts wrong, or to add what it can't guess
-(labels, version sources, variables).
+The app detects a first version itself when a project has no file: from the Makefile convention and
+from the playbooks, roles and containers (Settings → Detect again re-runs it). Use this skill when the
+detection got parts wrong, to group products the way the owner thinks of them, or to add what it can't
+guess (labels, descriptions, version sources, variables).
 
 ## Rules
 
@@ -143,7 +144,7 @@ Settings the app can edit in place, in plain YAML files (one line at column 0) o
   "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
   "version": 2,
   "name": "Shop",
-  "template": "makefile-convention",
+  "template": "auto",
   "environments": [],
   "promotion": [],
   "registry": { "url": "https://registry.example.com" },

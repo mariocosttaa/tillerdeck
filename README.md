@@ -41,35 +41,40 @@ Nothing is reimplemented. Every button runs your own Makefile target or playbook
 
 *Light mode. Auto follows the system.*
 
-![Template](docs/screenshots/v2-wizard.jpg)
+![Detection](docs/screenshots/v2-wizard.jpg)
 
-*First open: the app reads the project, says how compatible it is, and proposes an `ansible-mario.json`.*
+*First open: the app reads the project and shows what it found, with where each thing came from. Untick, rename, save.*
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  R[Your infra repo<br/>Makefile · playbooks · releases/*.yml] -->|template| M[ansible-mario.json]
+  R[Your infra repo<br/>Makefile · playbooks · roles · releases/*.yml] -->|detection| M[ansible-mario.json]
   M --> A[Ansible Mario]
   A -->|buttons| C["make deploy-shop-nestjs-staging<br/>ansible-playbook …"]
   C --> H[Hosts]
   A -->|promote / roll back| REL[releases/production.yml<br/>one line per service]
 ```
 
-### Customised by compatibility
+### Detected from your project
 
-The app is driven by an **`ansible-mario.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: on first open the app offers a **template** and shows how much of your project it understands:
+The app is driven by an **`ansible-mario.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: the app **reads the project and proposes it**, and you review it before anything is saved.
 
-- **Makefile convention.** Targets named `verb-product-technology-environment` (for example `deploy-shop-nestjs-staging` or `run-migrations-shop-nestjs-production`) become products, services and actions:
-  - The environment is the last segment, matched against `inventories/<env>.ini`.
-  - Targets without a product (`deploy-backup-*`, `provision-system-*`, `ping-*`) become operations: Backups, Machine, Observability and Verify.
-  - Version keys are found in `releases/<env>.yml` (`api_tag`, `shop_app_tag`, `api_commit`…).
-- **Playbooks only.** One button per playbook, run with the environment's inventory and release.
-- **Blank.** Configure it in **Settings**, where a form and the JSON stay in sync.
+- **Makefile.** Targets named `verb-product-technology-environment` (for example `deploy-shop-nestjs-staging` or `run-migrations-shop-nestjs-production`) become products, services and actions. Targets without a product (`deploy-backup-*`, `provision-system-*`, `ping-*`) become operations.
+- **Playbooks and roles, by what's inside.** Without a Makefile, or for playbooks no target runs, the app reads each playbook and the roles it uses:
+  - containers (`community.docker.docker_container`, compose, podman) give the service, its image and the variable of its tag (`image: "{{ registry }}/shop-api:{{ api_tag }}"` → image `shop-api`, version key `api_tag`);
+  - names of roles, images and files say what it is: `postgresql`, `redis`, `nginx`/`caddy`/`traefik`, `api`, `web`, `worker`…;
+  - `backup`, `restore`, `provision`, `monitoring`, `check`… become operations (restore and reset are marked destructive); a `site.yml` that only imports others becomes *Deploy everything*; `*-migrate.yml` and `*-seed.yml` attach to their service;
+  - `playbooks/<product>/…` and shared name prefixes (`shop-api`, `shop-web`) group services into products.
+- **Inventories** in `inventories/<env>.ini|yml`, `inventories/<env>/hosts.yml` or a root `hosts` file become servers. Two inventories pointing at the same machine become one server, with the second stack as a product placed on it.
+- **Versions** come from `releases/<env>.yml`; the tag format is guessed from a real value, and a full commit sha with the app's repository next to the infra repo means versions are git commits.
+- **Notifications** from `host_vars/<host>/notify.yml`.
+
+The review lists every server, service, operation and variable with the evidence behind it ("role postgresql in playbooks/db.yml"). Untick what you don't want, rename anything, and **Accept and save**, or start without saving. Later, **Settings → Detect again** shows only what's new since the file was written, and adds it without touching your edits. Under *Advanced* you can still read the project strictly by the Makefile convention, or as one button per playbook.
 
 The schema is in [`schema/v2.json`](schema/v2.json), so editors autocomplete and validate the file. Every field is explained, with a full example, in [`docs/configuration.md`](docs/configuration.md).
 
-**No file yet?** The app doesn't open empty. It reads the project with the most compatible template, opens straight into Services, and shows a bar to **Save ansible-mario.json** when you're ready. Until then nothing is written to the repository.
+**No file yet?** The app doesn't open empty. It opens straight into Services with what it detected, and shows a bar to **Review** or **Save ansible-mario.json** when you're ready. Until then nothing is written to the repository.
 
 What the file describes, and what you can change in **Settings** (or the JSON tab):
 
@@ -88,6 +93,7 @@ What the file describes, and what you can change in **Settings** (or the JSON ta
 
 ## Features
 
+- **Several projects open:** open more than one infra repo and switch from the project menu at the top of the sidebar (or ⌘1…⌘9). Each keeps its page, server and unsaved files; runs keep going in the background, with a dot on the project that has one. The open projects come back when the app restarts.
 - **Servers at the top, products in the sidebar:** each server shows only the products that exist on it.
 - **Services:** one row per app service, with its tech icon and the version on the chosen server, and a status: *Ready to promote*, *Behind*, *Ahead*, *Stable*, *Closed*, *Failed* or *Running*. Postgres, Redis and nginx sit in a compact infra strip.
 - **Inspector:**
@@ -193,16 +199,16 @@ cd src-tauri && cargo test --lib
 ```
 
 What the tests cover:
-- the template parser;
+- the Makefile convention and the playbook detection (on `examples/demo-infra` and `examples/playbooks-only`);
 - release rewrites that keep comments;
 - registry tag matching and tag-format parsing;
 - a real vault round trip;
 - real `ansible-playbook` runs on localhost, including streaming and cancelling.
 
-To check the template against your own repositories, read-only:
+To see what the detection makes of your own repositories, read-only:
 
 ```bash
-ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture template::
+ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture real_projects
 ```
 
 ## Project structure
@@ -210,7 +216,8 @@ ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture templ
 | Path | What is in it |
 | --- | --- |
 | `src-tauri/src/manifest.rs` | The `ansible-mario.json` model, and validation against the Makefile. |
-| `src-tauri/src/template.rs` | The Makefile-convention and playbooks templates, and the compatibility report. |
+| `src-tauri/src/detect.rs` | Detection: reads playbooks, roles and containers, merges with the Makefile, and keeps the evidence for the review. |
+| `src-tauri/src/template.rs` | The Makefile convention, inventories, versions and variables used by the detection. |
 | `src-tauri/src/releases.rs` | Reads and rewrites `releases/*.yml` line by line, keeping comments. |
 | `src-tauri/src/registry.rs` | Registry tags and build details (date, size, OCI labels) with `docker login` credentials; tag-format parsing. |
 | `src-tauri/src/ops.rs` | Maintenance flags from the inventory, and release history and commits from git. |
@@ -223,6 +230,7 @@ ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture templ
 | `AGENTS.md` | Notes for coding agents working on this repository. |
 | `.github/workflows/linux-release.yml` | Builds the Linux AppImage and `.deb` for a release tag. |
 | `examples/demo-infra` | A demo project that runs on localhost. |
+| `examples/playbooks-only` | A project with only playbooks and roles, no Makefile, for the detection. |
 
 ## Limitations
 

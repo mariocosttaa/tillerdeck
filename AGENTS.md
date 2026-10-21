@@ -16,16 +16,17 @@ The full field reference is [`docs/configuration.md`](docs/configuration.md).
 
 | Path | What |
 | --- | --- |
-| `src-tauri/src/` | Rust: the manifest model and validation (`manifest.rs`), templates (`template.rs`), release rewrites (`releases.rs`), registry (`registry.rs`), git and inventory reads (`ops.rs`), runs (`runner.rs`), Tauri commands (`lib.rs`). |
+| `src-tauri/src/` | Rust: the manifest model and validation (`manifest.rs`), detection from playbooks and roles (`detect.rs`), the Makefile convention (`template.rs`), release rewrites (`releases.rs`), registry (`registry.rs`), git and inventory reads (`ops.rs`), runs (`runner.rs`), Tauri commands (`lib.rs`). |
 | `src/v2/` | The React app: pages, the deploy dialog, git preferences, and the English/Portuguese strings (`pt.ts`, keyed by the English text). |
 | `src/legacy/` | The v1 editor, now the *Files* page. |
 | `examples/demo-infra` | A demo project that runs against localhost. Use it for screenshots and manual tests. |
+| `examples/playbooks-only` | Playbooks and roles without a Makefile: the detection fixture. |
 
 ```bash
 npm install
 npm run tauri dev                      # run the app
 npx tsc --noEmit -p .                  # type-check the UI
-cd src-tauri && cargo test --lib       # Rust tests (templates, releases, registry parsing, git, vault, runs)
+cd src-tauri && cargo test --lib       # Rust tests (detection, templates, releases, registry parsing, git, vault, runs)
 ```
 
 Rules the code follows:

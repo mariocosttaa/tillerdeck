@@ -4,8 +4,8 @@ Ansible Mario reads one file at the root of your infra repository: `ansible-mari
 
 You rarely write it from scratch:
 
-- **No file yet?** The app opens the project with the most compatible template, in memory. Use it right away. Press **Save ansible-mario.json** when you're happy with it.
-- **Change anything later** in **Settings**: forms for servers, products, buttons, operations, version sources and variables, plus a JSON tab. **Apply template** rebuilds it from the project.
+- **No file yet?** The app detects it from the project (the Makefile, and the playbooks, roles and containers themselves) and opens with it, in memory. A review shows each item with where it came from: untick, rename, **Accept and save**.
+- **Change anything later** in **Settings**: forms for servers, products, buttons, operations, version sources and variables, plus a JSON tab. **Detect again** proposes only what's new and adds it without touching your edits.
 - **Let an agent do it:** [`skills/ansible-mario-json`](../skills/ansible-mario-json/SKILL.md).
 
 The JSON schema is [`schema/v2.json`](../schema/v2.json). Add `"$schema"` to the file to get autocomplete and validation in your editor:
@@ -21,7 +21,7 @@ npx -y ajv-cli@5.0.0 validate --spec=draft2020 -s schema/v2.json -d ansible-mari
   "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
   "version": 2,
   "name": "Shop",
-  "template": "makefile-convention",
+  "template": "auto",
 
   // Servers. `id` replaces {env} in targets and is the word typed to confirm protected runs.
   "environments": [
@@ -93,7 +93,7 @@ npx -y ajv-cli@5.0.0 validate --spec=draft2020 -s schema/v2.json -d ansible-mari
 | --- | --- |
 | `version` | Always `2`. |
 | `name` | Shown in the app. |
-| `template` | The template that produced the file (`makefile-convention`, `playbooks`). Informative only. |
+| `template` | How the file was first made: `auto` (detected), `makefile-convention` or `playbooks`. Informative only. |
 | `environments` | The **servers** (below). |
 | `promotion` | `[{ "from", "to" }]`: enables the Promote page and the *Ready to promote* status. |
 | `registry` | `{ "url" }`: the Docker registry used for builds and per-environment tags. Credentials come from `docker login` (config.json or the macOS Keychain) and never go in this file. |
