@@ -1,109 +1,129 @@
 # Ansible Mario
 
-**v1.0.0**: a native macOS app to browse, edit and run your Ansible projects, built on the CLI you already use.
+**v2.0.0**: your Ansible project as a desktop app. Deploy, promote, back up and manage machines with buttons, built on the CLI you already use.
 
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/mariocosttaa/ansible-mario/releases) [![Ansible](https://img.shields.io/badge/Ansible-tested_on_core_2.21-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://docs.ansible.com) [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![Rust](https://img.shields.io/badge/Rust-backend-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org) [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Monaco](https://img.shields.io/badge/Editor-Monaco-0078D4?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://microsoft.github.io/monaco-editor/) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/mariocosttaa/ansible-mario/releases) [![Ansible](https://img.shields.io/badge/Ansible-tested_on_core_2.21-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://docs.ansible.com) [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![Rust](https://img.shields.io/badge/Rust-backend-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org) [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev) [![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-Ansible Mario opens any Ansible project (the folder with your `ansible.cfg`) and gives you one window for the whole loop. You can see what is in the project and edit the YAML without losing a comment. Vaults decrypt in memory only. Playbooks and Makefile targets run with live output. It has guard rails that make deploying to the wrong environment hard.
+Ansible Mario turns an Ansible repository into an operations app:
+- **Services:** every service of every product, with the version running in each environment.
+- **Actions:** buttons to deploy, migrate, seed or close a service for maintenance.
+- **Promotion:** move the image staging tested to production, one service at a time.
+- **Backups and machines:** restore, provision and verify.
+- **Live runs:** every run shows its progress and full log.
 
-It does not replace Ansible. Every action calls the real CLI on your machine (`ansible-playbook`, `ansible-inventory`, `ansible-vault`, `ansible-config`, `ansible-lint`, `make`), with your `ansible.cfg`, plugins and callbacks. A run from the app does exactly what the same command does in your terminal.
+Nothing is reimplemented. Every button runs your own Makefile target or playbook through the real `make` / `ansible-playbook`, with your `ansible.cfg`, vault and callbacks.
 
-> The interface is in European Portuguese for now. English is planned for v2.
+> The interface is in European Portuguese.
 
 ## Preview
 
-![Project overview](docs/screenshots/overview.jpg)
+![Services](docs/screenshots/v2-services.jpg)
 
-*Overview: project stats, recent runs, the effective `ansible.cfg` and the tools found on your PATH.*
+*Services: environment summary, each service's version path (staging → production), and an inspector with the actions.*
 
-| Editor and live run | Production guard |
+| A run in progress | The full log |
 | --- | --- |
-| ![Editor and live output](docs/screenshots/editor-run.jpg) | ![Typed confirmation for production](docs/screenshots/production-guard.jpg) |
-| *Monaco with YAML validation, plus the run console with ANSI colours.* | *Production runs need you to type the environment name.* |
+| ![Running](docs/screenshots/v2-running.jpg) | ![Log](docs/screenshots/v2-log.jpg) |
+| *A floating card shows the current step, taken from the `TASK [...]` lines.* | *The steps with timings, plus the colour log. You can cancel from here.* |
 
-![Makefile targets](docs/screenshots/makefile.jpg)
+| Promote staging → production | Production |
+| --- | --- |
+| ![Promote](docs/screenshots/v2-promote.jpg) | ![Production](docs/screenshots/v2-production.jpg) |
+| *The same image, one service at a time. Per-environment tags come from the registry, or you type them in.* | *Protected: every action asks you to type `production`.* |
 
-*Makefile targets (`target: ## description`, `##@ Section`) become actions. You see the recipe before anything runs.*
+![Template](docs/screenshots/v2-wizard.jpg)
 
-## Features
+*First open: the app reads the project, says how compatible it is, and proposes an `ansible-mario.json`.*
 
-- **Project view:** finds the `ansible.cfg` and classifies playbooks, inventories, releases (`releases/*.yml`), `group_vars`/`host_vars`, vaults and roles.
-- **Inventories:** groups and hosts come from `ansible-inventory --list`. Host variables, which can include decrypted vault values, stay in the backend and never reach the UI.
-- **Editor:** Monaco with live YAML validation, `ansible-lint` markers and `--syntax-check`. Files are saved as text, so comments always survive. Invalid YAML needs an explicit "save anyway".
-- **Vault:** `$ANSIBLE_VAULT` files open decrypted in memory and are re-encrypted on save through stdin. Plaintext never touches the disk, not even as a temp file. The password comes from your project's `vault_password_file`.
-- **Run playbooks:** pick the playbook, inventory, `-e @release`, `--limit`, `--tags`, `--check`, `--diff`, `-v` and extra args. Output streams live with colours. Cancel sends SIGINT, then SIGTERM, then SIGKILL to the whole process group. Every run goes into the history with its full log.
-- **Makefile actions:** targets are listed by section, with their recipe shown before running.
-- **CLI launcher:** `ansible-mario .` opens the current folder in the app.
-
-## Guard rails
+## How it works
 
 ```mermaid
 flowchart LR
-  A[Choose playbook] --> B{Inventory chosen?}
-  B -- no --> X[Run blocked]
-  B -- yes --> C{Production, or<br/>mismatched release?}
-  C -- no --> D[Confirm with one click]
-  C -- yes --> E[Type the environment name]
-  D --> F[ansible-playbook ...]
-  E --> F
-  F --> G[Live output · cancel · history]
+  R[Your infra repo<br/>Makefile · playbooks · releases/*.yml] -->|template| M[ansible-mario.json]
+  M --> A[Ansible Mario]
+  A -->|buttons| C["make deploy-shop-nestjs-staging<br/>ansible-playbook …"]
+  C --> H[Hosts]
+  A -->|promote / roll back| REL[releases/production.yml<br/>one line per service]
 ```
 
-- **There is never a default inventory.** You always choose the environment yourself.
-- **Production needs a typed confirmation.** When the inventory, a release file, `--limit`, a host, a group or a make target looks like production, you type the environment name to continue.
-- **Mismatched environments are flagged.** `inventories/production.ini` together with `releases/staging.yml` shows a warning and asks for the same typed confirmation.
-- **Destructive make targets ask too.** Targets that wipe, reset or restore data need the typed word even outside production.
-- **Interactive Makefile locks keep working.** Some Makefiles ask with `read` and honour `CONFIRM=yes`. Without a terminal that `read` would just fail, so the app asks for the word itself and then passes `CONFIRM=yes`.
-- **Quitting mid-run asks first.** Closing the window or pressing ⌘Q during a run, or with unsaved files, shows a dialog. Quitting would stop Ansible in the middle of a task.
-- **The app only touches the open project.** Reading, writing and running are limited to that folder.
+### Customised by compatibility
+
+The app is driven by an **`ansible-mario.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: on first open the app offers a **template** and shows how much of your project it understands:
+
+- **Makefile convention.** Targets named `verb-product-technology-environment` (for example `deploy-shop-nestjs-staging` or `run-migrations-shop-nestjs-production`) become products, services and actions:
+  - The environment is the last segment, matched against `inventories/<env>.ini`.
+  - Targets without a product (`deploy-backup-*`, `provision-system-*`, `ping-*`) become operations: Backups, Machine, Observability and Verify.
+  - Version keys are found in `releases/<env>.yml` (`api_tag`, `shop_app_tag`, `api_commit`…).
+- **Playbooks only.** One button per playbook, run with the environment's inventory and release.
+- **Blank.** Configure it in **Settings**, where a form and the JSON stay in sync.
+
+The schema is in [`schema/v2.json`](schema/v2.json), so editors autocomplete and validate the file.
+
+## Features
+
+- **Services:** one row per app service, with its tech icon and version path, and a status: *Ready to promote*, *Stable*, *Closed*, *Failed* or *Running*. Postgres, Redis and nginx sit in a compact infra strip.
+- **Inspector:**
+  - versions in both environments;
+  - a big **Deploy** action, plus **Migrate**, **Seed** and **Maintenance on/off**;
+  - **Previous version**, which picks an older value from the release file's git history and redeploys it;
+  - recent activity.
+- **Promote:**
+  - Compares the release files and copies the tag staging tested, one service at a time: it writes that service's line, deploys, and on failure puts the line back and stops. Your release file never claims a version that isn't running.
+  - Apps whose tag carries the environment (`-staging-`) are looked up in the registry, using your `docker login` credentials (config.json or Keychain). If the registry can't answer, you type the tag in.
+- **Backups:** install, rehearse a restore on staging, restore production, with scope (`all`, `db`, `storage`) when the Makefile supports it.
+- **Machine:**
+  - provisioning in order, including a "new machine" sequence that stops at the first failure;
+  - open or close apps to users, using the state in your inventory;
+  - observability, and read-only checks.
+- **Runs:** history with filters, the full log of every run, *copy command* and *run again*.
+- **⌘K:** run any action or jump anywhere.
+- **Files (advanced):** the v1 editor is still here, with YAML validation, `ansible-lint`, the vault edited in memory and free-form runs.
+
+## Guard rails
+
+- **Protected environments** (production) ask you to **type the environment name** for every action.
+- **Destructive operations** (restore, reset) ask for the typed word in every environment.
+- **One run per environment at a time.** The machine never gets two deploys at once.
+- **Interactive Makefile locks keep working.** If your Makefile asks with `read` and honours `CONFIRM=yes`, the app asks the question itself, then passes `CONFIRM=yes`.
+- **Missing targets are disabled.** A button whose target isn't in the Makefile is greyed out, and Settings lists what drifted.
+- **Nothing is invented on screen.** Versions come from the release files, "last deploy" from the app's own history, maintenance state from the inventory, and notifications from your `callbacks_enabled`.
+- **Quitting during a run asks first.**
 
 ## Quick start
 
-### Install the app
+### Install
 
-1. Download `Ansible-Mario-1.0.0-macos-arm64.dmg` (or the `.zip`) from the [latest release](https://github.com/mariocosttaa/ansible-mario/releases/latest).
-2. Open it and drag **Ansible Mario.app** to `/Applications`.
-3. The app is not signed with an Apple Developer ID yet, so macOS blocks it the first time. Allow it once:
+1. Download `Ansible-Mario-2.0.0-macos-arm64.dmg` (or the `.zip`) from the [latest release](https://github.com/mariocosttaa/ansible-mario/releases/latest), and drag **Ansible Mario.app** to `/Applications`.
+2. The app is not signed with an Apple Developer ID yet, so allow it once:
 
    ```bash
    xattr -dr com.apple.quarantine "/Applications/Ansible Mario.app"
    ```
 
-   Or right-click the app, choose **Open**, then confirm.
+**Requirements:** a Mac with Apple Silicon, Ansible (`ansible-core`) and `make`. `ansible-lint` and `docker login` are optional. The app reads your login shell's `PATH`, so tools in `~/.local/bin` or `/opt/homebrew/bin` are found even when it's opened from Finder.
 
-**Requirements:**
-- A Mac with Apple Silicon.
-- Ansible installed (`pipx install ansible-core`, `brew install ansible` or `pip install --user ansible`).
-- Optionally `ansible-lint`.
+### Try the demo
 
-A macOS app opened from Finder does not inherit your terminal's `PATH`. Ansible Mario reads the `PATH` from your login shell (`$SHELL -ilc`), so tools in `~/.local/bin` or `/opt/homebrew/bin` are found. The Overview tab shows where each tool was found.
-
-### Open a project from the terminal
+[`examples/demo-infra`](examples/demo-infra) follows the convention and already has its `ansible-mario.json`. Its "machines" are **this computer over a local connection**, so you can really deploy, promote, migrate and restore without touching any server:
 
 ```bash
 git clone https://github.com/mariocosttaa/ansible-mario.git
-ln -s "$PWD/ansible-mario/bin/ansible-mario" /usr/local/bin/ansible-mario
-
-cd ~/infra/my-project
-ansible-mario            # or: ansible-mario <folder>
+open -a "Ansible Mario" --args "$PWD/ansible-mario/examples/demo-infra"
 ```
 
-### Try it with the demo project
-
-[`examples/demo-infra`](examples/demo-infra) is a small project with two environments, release files, a vault (password `demo`) and a Makefile:
+### Open your own project
 
 ```bash
-ansible-mario examples/demo-infra
+ln -s "$PWD/ansible-mario/bin/ansible-mario" /usr/local/bin/ansible-mario
+cd ~/infra/my-project && ansible-mario
 ```
-
-Its hosts are placeholder addresses (`192.0.2.x`), so real runs fail to connect. Syntax checks, lint, the inventory view and the vault editor all work offline.
 
 ## Build from source
 
 ```bash
 npm install
-npm run tauri dev                        # development, with hot reload
-npm run tauri build -- --bundles app     # src-tauri/target/release/bundle/macos/Ansible Mario.app
+npm run tauri dev                              # development
+npm run tauri build -- --bundles app,dmg       # src-tauri/target/release/bundle/
 ```
 
 You need Node 20 or newer, Rust (stable) and the Xcode Command Line Tools.
@@ -111,56 +131,42 @@ You need Node 20 or newer, Rust (stable) and the Xcode Command Line Tools.
 ### Tests
 
 ```bash
-cd src-tauri
-cargo test --lib
+cd src-tauri && cargo test --lib
 ```
 
-The tests run real Ansible: playbooks against `localhost` over a local connection, a vault round trip, lint parsing, and tool discovery. No remote machine is touched. To check your own projects read-only (scan, inventory, syntax check, decrypting the vault in memory):
+What the tests cover:
+- the template parser;
+- release rewrites that keep comments;
+- registry tag matching;
+- a real vault round trip;
+- real `ansible-playbook` runs on localhost, including streaming and cancelling.
+
+To check the template against your own repositories, read-only:
 
 ```bash
-ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture
-```
-
-## How it works
-
-```mermaid
-flowchart TB
-  subgraph UI["React + Monaco (webview)"]
-    S[Sidebar] --- E[Editor]
-    R[Run panel] --- M[Makefile panel]
-    C[Console]
-  end
-  subgraph Core["Rust (Tauri)"]
-    P[project.rs<br/>scan · inventory · lint]
-    V[vault.rs<br/>view · re-encrypt]
-    RN[runner.rs<br/>process groups · events · history]
-    SH[shell.rs<br/>login-shell PATH]
-  end
-  UI -- invoke --> Core
-  RN -- run-output / run-exit events --> C
-  Core --> CLI["ansible-* · make<br/>(your installation)"]
+ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture template::
 ```
 
 ## Project structure
 
 | Path | What is in it |
 | --- | --- |
-| `src-tauri/src/shell.rs` | Reads the login-shell `PATH` and starts external commands. |
-| `src-tauri/src/project.rs` | Scans the project and classifies files; handles the Makefile, `ansible-config`, `ansible-inventory`, lint and syntax check. |
-| `src-tauri/src/vault.rs` | Views and saves vaults without plaintext on disk. |
-| `src-tauri/src/runner.rs` | Runs commands in their own process group, emits output events, cancels and keeps the history. |
-| `src-tauri/src/lib.rs` | The Tauri commands and the quit guard. |
-| `src/` | The React UI: `App.tsx`, `api.ts`, `monaco.ts` and the `components/` folder. |
-| `bin/ansible-mario` | The CLI launcher. |
-| `examples/demo-infra` | A demo Ansible project. |
-
-The history and run logs live in `~/Library/Application Support/pt.solo.ansiblemario/`.
+| `src-tauri/src/manifest.rs` | The `ansible-mario.json` model, and validation against the Makefile. |
+| `src-tauri/src/template.rs` | The Makefile-convention and playbooks templates, and the compatibility report. |
+| `src-tauri/src/releases.rs` | Reads and rewrites `releases/*.yml` line by line, keeping comments. |
+| `src-tauri/src/registry.rs` | Lists Docker registry tags with `docker login` credentials. |
+| `src-tauri/src/ops.rs` | Maintenance flags from the inventory, and release history and commits from git. |
+| `src-tauri/src/runner.rs` | Runs in a process group: streaming, cancelling, history, one run per environment. |
+| `src/v2/` | The app: shell, pages (Services, Promote, Backups, Machine, Runs, Settings), ⌘K and the run views. |
+| `src/legacy/` | The v1 editor, now *Files (advanced)*. |
+| `schema/v2.json` | JSON schema for `ansible-mario.json`. |
+| `examples/demo-infra` | A demo project that runs on localhost. |
 
 ## Limitations
 
-- Apple Silicon only, and the app is unsigned. An Intel build, signing and notarisation are planned.
-- The interface is in Portuguese only.
-- Files can't be created, renamed or deleted from the app yet.
+- Apple Silicon only, and unsigned. Linux and an Intel build are planned.
+- There's no snapshot list unless your Makefile has a target that prints one. Restores use `latest` or the name you type.
+- Container status (running or unhealthy) comes from your `status-*` target when you run it. It is not live.
 
 ## License
 
