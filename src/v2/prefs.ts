@@ -32,9 +32,13 @@ export function savePrefs(p: Prefs) {
 /** Aplica o tema à página e à janela (barra de título nativa incluída). */
 export function applyTheme(t: Theme) {
   document.documentElement.dataset.theme = t;
-  getCurrentWindow()
-    .setTheme(t === "auto" ? null : t)
-    .catch(() => {});
+  try {
+    getCurrentWindow()
+      .setTheme(t === "auto" ? null : t)
+      .catch(() => {});
+  } catch {
+    /* fora da janela do Tauri (pré-visualização): só a página */
+  }
 }
 
 export function isDark(t: Theme) {
