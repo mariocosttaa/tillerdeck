@@ -1,7 +1,7 @@
 //! Templates: gerar o `ansible-mario.json` a partir do que o projecto já tem.
 //!
 //! O template "Convenção do Makefile" lê nomes como
-//! `deploy-saco-nestjs-staging` e `run-migrations-edu-nestjs-production`:
+//! `deploy-shop-nestjs-staging` e `run-migrations-edu-nestjs-production`:
 //!
 //!     verbo · produto · tecnologia · ambiente
 //!
@@ -106,7 +106,7 @@ fn name_like(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
 }
 
-/// O primeiro bocado da descrição (`saco-api · playbooks/…` → `saco-api`).
+/// O primeiro bocado da descrição (`shop-api · playbooks/…` → `shop-api`).
 fn first_segment(desc: &str) -> &str {
     desc.split(" · ").next().unwrap_or("").trim()
 }
@@ -299,7 +299,7 @@ pub fn makefile_convention(root: &Path) -> Report {
                 });
             }
             let s = services.get_mut(&key).unwrap();
-            // o nome do serviço vem da descrição do deploy: `saco-api · playbooks/…`
+            // o nome do serviço vem da descrição do deploy: `shop-api · playbooks/…`
             let seg = first_segment(&t.description);
             if action == "deploy" && name_like(seg) && s.container.is_none() {
                 s.label = seg.to_string();
@@ -484,7 +484,7 @@ mod tests {
         let envs: BTreeSet<String> = ["staging", "production", "testes"].iter().map(|s| s.to_string()).collect();
         let p = parse("run-migrations-edu-nestjs-production", &envs).unwrap();
         assert_eq!((p.verb, p.rest.as_str(), p.env.as_deref()), ("run-migrations", "edu-nestjs", Some("production")));
-        assert_eq!(split_product_tech("saco-nestjs-worker"), Some(("saco".into(), "nestjs-worker")));
+        assert_eq!(split_product_tech("shop-nestjs-worker"), Some(("shop".into(), "nestjs-worker")));
         assert_eq!(split_product_tech("backup"), None);
         let p = parse("ping-staging", &envs).unwrap();
         assert_eq!((p.verb, p.rest.as_str()), ("ping", ""));

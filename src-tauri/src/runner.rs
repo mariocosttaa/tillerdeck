@@ -228,7 +228,7 @@ fn pump<RT: Runtime, R: std::io::Read + Send + 'static>(
 pub fn start<R: Runtime>(app: AppHandle<R>, runs: Arc<Runs>, root: &Path, spec: RunSpec, meta: Option<RunMeta>) -> Result<HistoryEntry, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     // Um serviço de cada vez por ambiente: duas corridas na mesma máquina
-    // pisam-se (o Makefile do saco-infra diz o mesmo).
+    // pisam-se (os Makefiles de deploy costumam dizer o mesmo).
     if let Some(env) = meta.as_ref().and_then(|m| m.env.as_ref()) {
         let root_s = root.to_string_lossy();
         if runs.running.lock().unwrap().values().any(|r| r.root == root_s && r.env.as_ref() == Some(env)) {

@@ -79,7 +79,7 @@
       "type": "object",
       "description": "Runs a Makefile target ({env} is replaced by the environment id) or a playbook with the environment's inventory and release.",
       "properties": {
-        "make": { "type": "string", "examples": ["deploy-saco-nestjs-{env}"] },
+        "make": { "type": "string", "examples": ["deploy-shop-nestjs-{env}"] },
         "playbook": { "type": "string" },
         "envs": { "type": "array", "items": { "type": "string" }, "description": "Environments where the action exists. Empty means all." }
       },

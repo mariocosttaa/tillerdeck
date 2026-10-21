@@ -97,7 +97,7 @@ pub fn short(value: &str) -> String {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = "---\n# api_tag: 0.0.1 num comentário — não se toca\n# --- saco ---\napi_tag: 1.20.0-124d06b-c2e5b81f\nworker_tag: \"1.3.1-2916c27-500c2fe7\"  # nota\napp_tag: 1.16.2-production-c007238-0ea6a682\n";
+    const SAMPLE: &str = "---\n# api_tag: 0.0.1 num comentário — não se toca\n# --- shop ---\napi_tag: 1.20.0-124d06b-c2e5b81f\nworker_tag: \"1.3.1-2916c27-500c2fe7\"  # nota\napp_tag: 1.16.2-production-c007238-0ea6a682\n";
 
     fn tmp() -> std::path::PathBuf {
         let d = std::env::temp_dir().join(format!("am-rel-{}-{:?}", std::process::id(), std::thread::current().id()));

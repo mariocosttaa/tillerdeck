@@ -206,7 +206,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, first }: { root:
         <h2 className="mt-4 text-[20px] font-semibold tracking-tight">{first ? `O ${name} ainda não tem definições` : "Aplicar um template"}</h2>
         <p className="mt-1 text-fg-2">A app lê o projecto e propõe. {first ? "Sem definições, o modo Ficheiros continua disponível." : "Substitui o ansible-mario.json actual."}</p>
         <div className="mt-5 space-y-2">
-          {option("makefile-convention", "Convenção do Makefile", <>Alvos <span className="font-mono">verbo-produto-tecnologia-ambiente</span>, como <span className="font-mono">deploy-saco-nestjs-staging</span>.</>)}
+          {option("makefile-convention", "Convenção do Makefile", <>Alvos <span className="font-mono">verbo-produto-tecnologia-ambiente</span>, como <span className="font-mono">deploy-shop-nestjs-staging</span>.</>)}
           {option("playbooks", "Só playbooks", "Um botão por playbook, com o inventário e o release do ambiente.")}
         </div>
         {r && (
