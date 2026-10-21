@@ -634,6 +634,11 @@ pub fn auto(root: &Path, lang: &str) -> Report {
         m.products[pi].services.push(s);
         found_services += 1;
     }
+    // as apps primeiro, a infra depois — como no Makefile
+    let rank = |k: &str| ["nestjs", "worker", "nextjs", "vite", "node", "service", "nginx", "postgres", "mysql", "mongodb", "redis"].iter().position(|x| *x == k).unwrap_or(9);
+    for p in m.products.iter_mut() {
+        p.services.sort_by_key(|s| rank(&s.kind));
+    }
     let mut op_ids: BTreeSet<String> = m.operations.iter().map(|o| o.id.clone()).collect();
     for (mut o, ev) in ops {
         o.id = unique(o.id.clone(), &mut op_ids);
