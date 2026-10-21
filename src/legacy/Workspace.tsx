@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { api, errorText, type FileEntry, type HistoryEntry, type Project, type RunSpec } from "./api";
+import { api, errorText, type FileEntry, type HistoryEntry, type Project, type RunSpec } from "../api";
 import Sidebar from "./components/Sidebar";
 import Editor, { yamlErrors, type OpenFile } from "./components/Editor";
 import RunPanel from "./components/RunPanel";
@@ -9,22 +8,12 @@ import MakePanel from "./components/MakePanel";
 import Overview from "./components/Overview";
 import Console, { type RunView } from "./components/Console";
 import ConfirmRun, { type ConfirmRequest } from "./components/ConfirmRun";
-import { monaco } from "./monaco";
+import { monaco } from "../monaco";
 
 type View = "overview" | "run" | "make";
 type Tab = { type: "view"; view: View } | { type: "file"; path: string };
 
 const MAX_LINES = 50_000;
-const RECENTS_KEY = "ansible-mario.recents";
-
-function loadRecents(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
 function useDark() {
   const q = window.matchMedia("(prefers-color-scheme: dark)");
   const [dark, setDark] = useState(q.matches);
@@ -36,10 +25,11 @@ function useDark() {
   return dark;
 }
 
-export default function App() {
+/** A v1 inteira — árvore, editor, vault, execução livre — agora o modo
+ *  "Ficheiros (avançado)" da v2. O projecto vem de fora. */
+export default function Workspace({ initial }: { initial: Project }) {
   const dark = useDark();
-  const [project, setProject] = useState<Project | null>(null);
-  const [recents, setRecents] = useState<string[]>(loadRecents);
+  const [project, setProject] = useState<Project | null>(initial);
   const [files, setFiles] = useState<OpenFile[]>([]);
   const [tab, setTab] = useState<Tab>({ type: "view", view: "overview" });
   const [runs, setRuns] = useState<Record<string, RunView>>({});
@@ -52,7 +42,6 @@ export default function App() {
   // O último playbook aberto no editor: o separador Executar já o traz escolhido.
   const [lastPlaybook, setLastPlaybook] = useState<string | null>(null);
   const [pendingClose, setPendingClose] = useState<string | null>(null);
-  const [quitBlocked, setQuitBlocked] = useState<{ running: number; dirty: boolean } | null>(null);
   const [forceSave, setForceSave] = useState<{ path: string; errors: string[] } | null>(null);
 
   const say = (text: string, bad = false) => {
@@ -97,13 +86,11 @@ export default function App() {
         return next;
       });
     };
-    const unQuit = listen<{ running: number; dirty: boolean }>("quit-blocked", (e) => setQuitBlocked(e.payload));
     const t = window.setInterval(flush, 100);
     api.runHistory().then(setHistory);
     return () => {
       unOut.then((f) => f());
       unExit.then((f) => f());
-      unQuit.then((f) => f());
       window.clearInterval(t);
     };
   }, []);
@@ -111,27 +98,6 @@ export default function App() {
   const runningIds = useMemo(() => new Set(Object.values(runs).filter((r) => r.running).map((r) => r.entry.id)), [runs]);
 
   // --- projecto ---
-  const openProject = useCallback(async (path: string) => {
-    try {
-      const p = await api.openProject(path);
-      setProject(p);
-      monaco.editor.getModels().forEach((m) => m.dispose());
-      setLastPlaybook(null);
-      setFiles([]);
-      setTab({ type: "view", view: "overview" });
-      const next = [p.root, ...loadRecents().filter((r) => r !== p.root)].slice(0, 8);
-      localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
-      setRecents(next);
-    } catch (e) {
-      say(errorText(e), true);
-    }
-  }, []);
-
-  async function pickProject() {
-    const dir = await openDialog({ directory: true, title: "Abrir projecto Ansible" });
-    if (typeof dir === "string") openProject(dir);
-  }
-
   async function refresh() {
     if (project) setProject(await api.openProject(project.root));
   }
@@ -272,45 +238,7 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    api.initialProject().then((p) => {
-      if (p) openProject(p);
-    });
-  }, []);
-
-  // ⌘O abre um projecto.
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === "o") {
-        e.preventDefault();
-        pickProject();
-      }
-    };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, []);
-
-  if (!project) {
-    return (
-      <div className="welcome">
-        <h1>Ansible Mario</h1>
-        <p className="muted">Abre a pasta de um projecto Ansible — a que tem o <code>ansible.cfg</code>.</p>
-        <button className="primary big" onClick={pickProject}>Abrir projecto… <kbd>⌘O</kbd></button>
-        {recents.length > 0 && (
-          <div className="recents">
-            <h3>Recentes</h3>
-            {recents.map((r) => (
-              <button key={r} className="recent" onClick={() => openProject(r)}>
-                <b>{r.split("/").pop()}</b>
-                <span className="muted small">{r}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {toast && <div className={`toast ${toast.bad ? "bad" : ""}`}>{toast.text}</div>}
-      </div>
-    );
-  }
+  if (!project) return null;
 
   const consoleRun = consoleId ? runs[consoleId] ?? null : null;
   const activeKind = active ? project.files.find((f) => f.path === active.path)?.kind : null;
@@ -321,11 +249,9 @@ export default function App() {
   ];
 
   return (
-    <div className="app">
+    <div className="legacy app">
       <header className="topbar">
-        <button className="project-btn" onClick={pickProject} title="Abrir outro projecto (⌘O)">
-          <b>{project.name}</b> <span className="muted">▾</span>
-        </button>
+        <b className="px-2">{project.name}</b>
         <button className="mini" onClick={refresh} title="Voltar a ler a árvore">↻</button>
         <div className="spacer" />
         {busy && <span className="busy">{busy}</span>}
@@ -401,26 +327,6 @@ export default function App() {
         </main>
       </div>
       {confirm && <ConfirmRun req={confirm} onClose={() => setConfirm(null)} />}
-      {quitBlocked && (
-        <div className="modal-back" onMouseDown={() => setQuitBlocked(null)}>
-          <div className="modal danger" onMouseDown={(e) => e.stopPropagation()}>
-            <h2>Sair da app?</h2>
-            {quitBlocked.running > 0 && (
-              <p className="warn">
-                ⚠ Há {quitBlocked.running} corrida{quitBlocked.running > 1 ? "s" : ""} a decorrer. Sair agora interrompe o
-                Ansible a meio de uma task, e as máquinas podem ficar num estado intermédio.
-              </p>
-            )}
-            {quitBlocked.dirty && <p className="warn">⚠ Há ficheiros com alterações por gravar, que se perdem.</p>}
-            <div className="modal-actions">
-              <button className="primary" autoFocus onClick={() => setQuitBlocked(null)}>Ficar</button>
-              <button className="danger" onClick={() => api.forceQuit()}>
-                {quitBlocked.running > 0 ? "Interromper e sair" : "Sair sem gravar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {toast && <div className={`toast ${toast.bad ? "bad" : ""}`}>{toast.text}</div>}
     </div>
   );

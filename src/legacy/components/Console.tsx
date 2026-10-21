@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnsiUp } from "ansi_up";
-import type { HistoryEntry } from "../api";
+import type { HistoryEntry } from "../../api";
 
 export interface RunView {
   entry: HistoryEntry;

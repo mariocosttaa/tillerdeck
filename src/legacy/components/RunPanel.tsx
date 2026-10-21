@@ -9,7 +9,7 @@ import {
   type InventoryGroup,
   type Project,
   type RunSpec,
-} from "../api";
+} from "../../api";
 import type { ConfirmRequest } from "./ConfirmRun";
 
 interface Props {

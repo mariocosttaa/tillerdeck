@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, errorText, type ConfigSetting, type Environment, type HistoryEntry, type Project } from "../api";
+import { api, errorText, type ConfigSetting, type Environment, type HistoryEntry, type Project } from "../../api";
 import { statusOf } from "./Console";
 
 interface Props {

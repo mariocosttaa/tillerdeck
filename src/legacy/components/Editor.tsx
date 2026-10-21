@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import MonacoEditor, { type OnMount } from "@monaco-editor/react";
 import { parseDocument } from "yaml";
-import { monaco } from "../monaco";
-import type { LintIssue } from "../api";
+import { monaco } from "../../monaco";
+import type { LintIssue } from "../../api";
 
 export interface OpenFile {
   path: string;

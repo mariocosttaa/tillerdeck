@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, looksLikeProduction, shellQuote, type MakeTarget, type Project, type RunSpec } from "../api";
+import { api, looksLikeProduction, shellQuote, type MakeTarget, type Project, type RunSpec } from "../../api";
 import type { ConfirmRequest } from "./ConfirmRun";
 
 interface Props {

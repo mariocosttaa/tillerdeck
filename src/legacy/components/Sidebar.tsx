@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { api, errorText, type FileEntry, type InventoryGroup, type Project } from "../api";
+import { api, errorText, type FileEntry, type InventoryGroup, type Project } from "../../api";
 
 type Section = "projeto" | "ficheiros";
 
