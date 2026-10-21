@@ -230,6 +230,13 @@ async fn git_remote(root: String) -> Result<ops::Remote, String> {
 }
 
 #[tauri::command]
+async fn release_publish(root: String, files: Vec<String>, message: String, branch: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || ops::publish(&root_path(&root), &files, &message, &branch))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn git_push(root: String, branch: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || ops::push(&root_path(&root), &branch))
         .await
@@ -418,6 +425,7 @@ pub fn run() {
             release_commit_many,
             git_remote,
             git_push,
+            release_publish,
             git_commits,
             var_set,
             vault_key_set,

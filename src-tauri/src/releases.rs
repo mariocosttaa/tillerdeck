@@ -31,6 +31,11 @@ fn parse_line(line: &str) -> Option<(String, String, String)> {
     Some((key.to_string(), v, comment))
 }
 
+/// As chaves de um release a partir do texto (por exemplo de outra branch).
+pub fn parse(text: &str) -> BTreeMap<String, String> {
+    text.lines().filter_map(parse_line).map(|(k, v, _)| (k, v)).collect()
+}
+
 pub fn read(root: &Path, rel: &str) -> Result<BTreeMap<String, String>, String> {
     let text = fs::read_to_string(resolve(root, rel)?).map_err(|e| format!("{rel}: {e}"))?;
     Ok(text.lines().filter_map(parse_line).map(|(k, v, _)| (k, v)).collect())

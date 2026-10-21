@@ -205,6 +205,102 @@ pub fn push(root: &Path, branch: &str) -> Result<String, String> {
     Ok(format!("{name}/{branch}"))
 }
 
+/// git com variáveis de ambiente e, opcionalmente, um stdin.
+fn git_with(root: &Path, args: &[&str], envs: &[(&str, &str)], stdin: Option<&str>) -> Result<shell::Output, String> {
+    use std::io::Write;
+    let mut cmd = shell::command("git", root);
+    cmd.args(args).env("GIT_TERMINAL_PROMPT", "0");
+    if std::env::var_os("GIT_SSH_COMMAND").is_none() {
+        cmd.env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes");
+    }
+    for (k, v) in envs {
+        cmd.env(k, v);
+    }
+    if stdin.is_some() {
+        cmd.stdin(std::process::Stdio::piped());
+    }
+    cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+    let mut child = cmd.spawn().map_err(|e| format!("não foi possível correr `git`: {e}"))?;
+    if let Some(text) = stdin {
+        child.stdin.take().ok_or("sem stdin")?.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+    }
+    let out = child.wait_with_output().map_err(|e| e.to_string())?;
+    Ok(shell::Output { ok: out.status.success(), stdout: String::from_utf8_lossy(&out.stdout).into_owned(), stderr: String::from_utf8_lossy(&out.stderr).into_owned() })
+}
+
+fn must(o: shell::Output) -> Result<String, String> {
+    if o.ok { Ok(o.stdout.trim().to_string()) } else { Err(strip_credentials(format!("{}{}", o.stdout, o.stderr).trim())) }
+}
+
+/// Guarda os releases alterados na branch escolhida e envia-a.
+///
+/// Na própria branch: commit e push normais. Noutra branch: o commit faz-se
+/// SEM checkout — parte da branch no remote, aplica só as chaves que mudaram
+/// (não o ficheiro inteiro da tua branch) num índice temporário e envia.
+/// A tua branch, o índice e os ficheiros por gravar ficam como estavam.
+pub fn publish(root: &Path, files: &[String], message: &str, branch: &str) -> Result<String, String> {
+    let r = remote(root);
+    let current = r.branch.clone().unwrap_or_default();
+    if branch.is_empty() || branch == current {
+        let sha = commit_files(root, files, message)?;
+        let to = push(root, &current)?;
+        return Ok(format!("{sha} → {to}"));
+    }
+    let name = r.remote.ok_or("o repositório não tem remote")?;
+    for f in files {
+        resolve(root, f)?;
+    }
+    must(git_with(root, &["fetch", "--quiet", &name, &format!("refs/heads/{branch}")], &[], None)?)
+        .map_err(|e| format!("não consegui ler `{name}/{branch}`: {e}"))?;
+    let base = must(git_with(root, &["rev-parse", "FETCH_HEAD"], &[], None)?)?;
+    let prefix = must(git_with(root, &["rev-parse", "--show-prefix"], &[], None)?).unwrap_or_default();
+
+    let index = std::env::temp_dir().join(format!("am-index-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)));
+    let index_s = index.to_string_lossy().to_string();
+    let env = [("GIT_INDEX_FILE", index_s.as_str())];
+    let result = (|| -> Result<String, String> {
+        must(git_with(root, &["read-tree", &base], &env, None)?)?;
+        let mut changed = Vec::new();
+        for f in files {
+            let path = format!("{prefix}{f}");
+            let head = git_with(root, &["show", &format!("HEAD:{path}")], &[], None)?;
+            let before = if head.ok { crate::releases::parse(&head.stdout) } else { Default::default() };
+            let now = crate::releases::parse(&std::fs::read_to_string(root.join(f)).map_err(|e| format!("{f}: {e}"))?);
+            let keys: Vec<(&String, &String)> = now.iter().filter(|(k, v)| before.get(*k) != Some(*v)).collect();
+            if keys.is_empty() {
+                continue;
+            }
+            let mut text = must(git_with(root, &["show", &format!("{base}:{path}")], &[], None)?)
+                .map_err(|_| format!("`{f}` não existe em `{branch}`"))?;
+            text.push('\n');
+            for (k, v) in &keys {
+                text = crate::releases::replace_in_text(&text, k, v).map_err(|e| format!("{f} em `{branch}`: {e}"))?.0;
+                changed.push(format!("{k}={v}"));
+            }
+            let blob = must(git_with(root, &["hash-object", "-w", "--stdin"], &[], Some(&text))?)?;
+            must(git_with(root, &["update-index", "--add", "--cacheinfo", &format!("100644,{blob},{path}")], &env, None)?)?;
+        }
+        if changed.is_empty() {
+            return Err(format!("nada mudou em relação a `{branch}`"));
+        }
+        let tree = must(git_with(root, &["write-tree"], &env, None)?)?;
+        must(git_with(root, &["commit-tree", &tree, "-p", &base, "-m", message], &[], None)?)
+    })();
+    let _ = std::fs::remove_file(&index);
+    let commit = result?;
+    must(git_with(root, &["push", "--porcelain", &name, &format!("{commit}:refs/heads/{branch}")], &[], None)?)
+        .map_err(|e| format!("o push para `{branch}` foi recusado: {e}"))?;
+    // a branch local acompanha, se não estiver aberta noutra worktree e for só avançar
+    let local = format!("refs/heads/{branch}");
+    let checked_out = git_line(root, &["worktree", "list", "--porcelain"]).is_some_and(|w| w.lines().any(|l| l == format!("branch {local}")));
+    let fast_forward = !git_with(root, &["rev-parse", "--verify", "--quiet", &local], &[], None)?.ok
+        || git_with(root, &["merge-base", "--is-ancestor", &local, &commit], &[], None)?.ok;
+    if !checked_out && fast_forward {
+        let _ = git_with(root, &["update-ref", &local, &commit], &[], None);
+    }
+    Ok(format!("{} → {name}/{branch}", &commit[..7.min(commit.len())]))
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -232,6 +328,24 @@ mod tests {
         let r = super::remote(&work);
         assert_eq!((r.branch.as_deref(), r.upstream.as_deref(), r.ahead, r.behind), (Some("main"), Some("origin/main"), 0, 0));
         assert_eq!(super::strip_credentials("https://u:tok@github.com/a/b.git"), "https://github.com/a/b.git");
+
+        // Noutra branch: trabalho a meio no "VS Code", e o release vai para a main sem checkout.
+        git(&work, &["checkout", "-q", "-b", "feature"]);
+        std::fs::write(work.join("releases/staging.yml"), "api_tag: 1.0.0\nfeature_only: yes\n").unwrap();
+        git(&work, &["commit", "-qam", "feature work"]);
+        std::fs::write(work.join("wip.txt"), "por gravar").unwrap();
+        std::fs::write(work.join("releases/staging.yml"), "api_tag: 2.0.0\nfeature_only: yes\n").unwrap();
+        let out = super::publish(&work, &["releases/staging.yml".into()], "chore(release): api 2.0.0 on staging", "main").unwrap();
+        assert!(out.ends_with("origin/main"), "{out}");
+        let show = |r: &str| crate::shell::run("git", &["show", r], &work).unwrap().stdout;
+        // na main: só a chave que mudou, sem o que é da feature
+        assert_eq!(show("origin/main:releases/staging.yml"), "api_tag: 2.0.0\n");
+        assert_eq!(show("main:releases/staging.yml"), "api_tag: 2.0.0\n", "a main local acompanha");
+        // a branch e os ficheiros de trabalho não mexeram
+        assert_eq!(super::remote(&work).branch.as_deref(), Some("feature"));
+        assert!(work.join("wip.txt").exists());
+        assert_eq!(std::fs::read_to_string(work.join("releases/staging.yml")).unwrap(), "api_tag: 2.0.0\nfeature_only: yes\n");
+        assert!(super::publish(&work, &["releases/staging.yml".into()], "x", "nao-existe").is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
