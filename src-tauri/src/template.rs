@@ -111,8 +111,43 @@ fn first_segment(desc: &str) -> &str {
     desc.split(" · ").next().unwrap_or("").trim()
 }
 
-fn humanize(id: &str) -> String {
-    capitalize(&id.replace('-', " "))
+/// O nome de uma operação em português: o verbo traduzido e o resto com
+/// os nomes conhecidos (`provision-security` → `Provisionar segurança`).
+fn op_label(verb: &str, rest: &str) -> String {
+    let v = match verb {
+        "provision" => "Provisionar",
+        "deploy" => "Instalar",
+        "restore" => "Restaurar",
+        "restore-upload" => "Restaurar de ficheiros deste computador",
+        "restore-local" => "Restaurar de ficheiros na máquina",
+        "snapshots" => "Listar os snapshots",
+        "ping" => "Ping",
+        "status" => "Estado dos containers",
+        "logs" => "Logs de um container",
+        "history" => "Diário de deploys",
+        "audit-security" => "Auditoria de segurança",
+        "test" => "Testar",
+        "reset" => "Repor",
+        "run-migrations" => "Migrar",
+        "run-seed" => "Semear",
+        "maintenance-on" => "Fechar",
+        "maintenance-off" => "Reabrir",
+        other => return capitalize(&format!("{other} {rest}").replace('-', " ").trim().to_string()),
+    };
+    let r = match rest {
+        "" => "",
+        "system" => "sistema",
+        "security" => "segurança",
+        "maintenance" => "manutenção",
+        "platform" => "plataforma",
+        "dbgate" => "DbGate",
+        "netdata" => "Netdata",
+        "kuma-push" => "Kuma",
+        "beszel" => "Beszel",
+        "local" => "deste computador",
+        other => other,
+    };
+    if r.is_empty() { v.to_string() } else { format!("{v} {}", r.replace('-', " ")) }
 }
 
 fn env_rank(color: &str) -> u8 {
@@ -285,7 +320,7 @@ pub fn makefile_convention(root: &Path) -> Report {
                 op_order.push(id.clone());
                 Operation {
                     id: id.clone(),
-                    label: humanize(&id),
+                    label: op_label(p.verb, &p.rest),
                     group: op_group(&id, p.verb, &t.section).to_string(),
                     description: t.description.clone(),
                     action: Action {
