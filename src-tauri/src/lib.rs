@@ -120,15 +120,32 @@ struct ProjectState {
     values: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
     git: ops::GitInfo,
     callbacks: Vec<String>,
+    /// Sem ansible-mario.json: o manifesto veio do template mais compatível e
+    /// ainda não está gravado.
+    auto: Option<AutoInfo>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AutoInfo {
+    template: String,
+    matched: usize,
+    total: usize,
 }
 
 #[tauri::command]
-async fn project_state(root: String) -> Result<ProjectState, String> {
+async fn project_state(root: String, lang: Option<String>) -> Result<ProjectState, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let r = root_path(&root);
         let targets: std::collections::BTreeSet<String> = project::make_targets(&r).into_iter().map(|t| t.name).collect();
+        let mut auto = None;
         let (manifest, manifest_error) = match manifest::load(&r) {
-            Ok(m) => (m, None),
+            Ok(Some(m)) => (Some(m), None),
+            Ok(None) => {
+                let rep = template::best(&r, lang.as_deref().unwrap_or("en"));
+                auto = Some(AutoInfo { template: rep.template.clone(), matched: rep.matched, total: rep.total });
+                (Some(rep.manifest), None)
+            }
             Err(e) => (None, Some(e)),
         };
         let problems = manifest.as_ref().map(|m| manifest::validate(&r, m, &targets)).unwrap_or_default();
@@ -157,7 +174,7 @@ async fn project_state(root: String) -> Result<ProjectState, String> {
             .and_then(|c| c.get("value").and_then(|v| v.as_array()).cloned())
             .map(|a| a.into_iter().filter_map(|x| x.as_str().map(String::from)).collect())
             .unwrap_or_default();
-        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, values, git: ops::git_info(&r), callbacks })
+        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, values, git: ops::git_info(&r), callbacks, auto })
     })
     .await
     .map_err(|e| e.to_string())?

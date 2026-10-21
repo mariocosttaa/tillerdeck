@@ -39,6 +39,21 @@ pub struct Report {
     pub warnings: Vec<String>,
 }
 
+/// O template que mais percebe o projecto: a convenção do Makefile se
+/// reconhece alguma coisa, senão um botão por playbook. Nunca vem vazio —
+/// no pior caso, os servidores dos inventários.
+pub fn best(root: &Path, lang: &str) -> Report {
+    let make = makefile_convention(root, lang);
+    if make.compatible && make.matched > 0 {
+        return make;
+    }
+    let books = playbooks_only(root, lang);
+    if books.compatible || books.manifest.products.iter().any(|p| !p.services.is_empty()) {
+        return books;
+    }
+    if make.manifest.environments.len() >= books.manifest.environments.len() { make } else { books }
+}
+
 fn kind_of(tech: &str) -> &'static str {
     match tech {
         "nestjs-worker" | "worker" => "worker",
