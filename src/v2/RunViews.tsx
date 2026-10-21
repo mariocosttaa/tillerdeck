@@ -93,6 +93,25 @@ export function RunCard({ run, onLog, onClose }: { run: Run; onLog: () => void; 
   );
 }
 
+function CancelButton({ id }: { id: string }) {
+  const ws = useWs();
+  return (
+    <button
+      className="b b-sm"
+      title="1.º SIGINT · 2.º SIGTERM · 3.º SIGKILL"
+      onClick={async () => {
+        try {
+          ws.toast(`${await api.runCancel(id)} enviado`);
+        } catch (e) {
+          ws.toast(errorText(e), true);
+        }
+      }}
+    >
+      <Square size={13} />Cancelar
+    </button>
+  );
+}
+
 /** O log completo de uma corrida, com os passos à esquerda. */
 export function LogPanel({ run, onClose }: { run: Run; onClose: () => void }) {
   const ref = useRef<HTMLPreElement>(null);
@@ -109,6 +128,7 @@ export function LogPanel({ run, onClose }: { run: Run; onClose: () => void }) {
         <span className="font-semibold">{run.entry.meta?.title ?? run.entry.label}</span>
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg-3 selectable">{run.entry.argv.join(" ")}</span>
         <label className="flex items-center gap-1.5 text-[12px] text-fg-2"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />seguir</label>
+        {run.running && <CancelButton id={run.entry.id} />}
         <button className="ib" onClick={onClose}><X size={16} /></button>
       </div>
       <div className="flex min-h-0 flex-1">

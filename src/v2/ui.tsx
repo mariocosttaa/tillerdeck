@@ -33,8 +33,8 @@ export function TechIcon({ kind, size = "md" }: { kind: string; size?: "sm" | "m
         <Boxes size={glyph} />
       )}
       {t.badge && (
-        <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-panel" style={{ color: t.color }}>
-          <Cog size={11} />
+        <span className="absolute -bottom-1 -right-1 grid size-[15px] place-items-center rounded-full text-white" style={{ background: t.color, boxShadow: "0 0 0 2px var(--w-panel)" }}>
+          <Cog size={10} strokeWidth={2.5} />
         </span>
       )}
     </span>
