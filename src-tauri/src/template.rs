@@ -233,6 +233,28 @@ fn environments(root: &Path, lang: &str) -> Vec<Environment> {
     envs
 }
 
+/// O formato de uma tag a partir de um exemplo do release:
+/// `1.17.0-staging-4be19d2-0a41dcef` → `{version}-{env}-{commit}-{build}`.
+pub fn guess_tag_format(tag: &str, env: &str) -> Option<String> {
+    let hex = |x: &str| x.len() >= 6 && x.chars().all(|c| c.is_ascii_hexdigit());
+    let ver = |x: &str| x.split('.').count() >= 2 && x.split('.').all(|p| !p.is_empty() && p.chars().next().is_some_and(|c| c.is_ascii_digit()));
+    let parts: Vec<&str> = tag.split('-').collect();
+    let n = parts.len();
+    if n == 1 {
+        return if hex(tag) && !ver(tag) { Some("{commit}".into()) } else if ver(tag.trim_start_matches('v')) { Some(if tag.starts_with('v') { "v{version}" } else { "{version}" }.into()) } else { None };
+    }
+    let head = ver(parts[0].trim_start_matches('v'));
+    let v = if parts[0].starts_with('v') { "v{version}" } else { "{version}" };
+    if !head { return None; }
+    match &parts[1..] {
+        [e, c, b] if *e == env && hex(c) && hex(b) => Some(format!("{v}-{{env}}-{{commit}}-{{build}}")),
+        [e, c] if *e == env && hex(c) => Some(format!("{v}-{{env}}-{{commit}}")),
+        [c, b] if hex(c) && hex(b) => Some(format!("{v}-{{commit}}-{{build}}")),
+        [c] if hex(c) => Some(format!("{v}-{{commit}}")),
+        _ => None,
+    }
+}
+
 pub fn makefile_convention(root: &Path, lang: &str) -> Report {
     let project_name = root.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     let main_product = project_name.trim_end_matches("-infra").trim_end_matches("-ansible").to_string();
@@ -304,6 +326,7 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
                     per_env_image: false,
                     container: None,
                     description: None,
+                    versions: None,
                     actions: BTreeMap::new(),
                 });
             }
@@ -321,6 +344,7 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
                 make: Some(if p.env.is_some() { format!("{base}-{{env}}") } else { base.clone() }),
                 playbook: None,
                 envs: vec![],
+                includes_deploy: false,
             });
             entry.envs.extend(env_list);
         } else {
@@ -336,6 +360,7 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
                         make: Some(if p.env.is_some() { format!("{id}-{{env}}") } else { id.clone() }),
                         playbook: None,
                         envs: vec![],
+                        includes_deploy: false,
                     },
                     destructive: {
                         let s = format!("{} {}", t.name, t.description).to_lowercase();
@@ -360,9 +385,28 @@ pub fn makefile_convention(root: &Path, lang: &str) -> Report {
                 if name_like(&s.label) && s.label.contains('-') {
                     s.image = Some(s.label.clone());
                 }
+                let sample = rel.iter().find_map(|(env, m)| m.get(&k).map(|v| (env.clone(), v.clone())));
+                if let (Some(_), Some((env, v))) = (&s.image, sample) {
+                    s.versions = Some(crate::manifest::Versions { source: "registry".into(), tag_format: guess_tag_format(&v, &env), ..Default::default() });
+                }
                 s.release_key = Some(k);
             }
             None => warnings.push(format!("{} ({product}): nenhuma chave de versão nos releases — preenche à mão", s.label)),
+        }
+    }
+
+    // migrar/semear que correm o MESMO playbook do deploy também instalam a versão
+    let recipe = |name: &str| targets.iter().find(|t| t.name == name).map(|t| t.recipe.join("\n")).unwrap_or_default();
+    let playbook_in = |text: &str| text.split(|c: char| c.is_whitespace() || c == ',').find(|w| w.ends_with(".yml") || w.ends_with(".yaml")).map(String::from);
+    for s in services.values_mut() {
+        let first = |a: &Action| a.make.as_ref().map(|m| m.replace("{env}", a.envs.first().map(String::as_str).unwrap_or(env_ids.first().map(String::as_str).unwrap_or(""))));
+        let Some(dp) = s.actions.get("deploy").and_then(first).and_then(|n| playbook_in(&recipe(&n))) else { continue };
+        for k in ["migrate", "seed"] {
+            if let Some(a) = s.actions.get_mut(k) {
+                if first(a).is_some_and(|n| playbook_in(&recipe(&n)).as_deref() == Some(dp.as_str())) {
+                    a.includes_deploy = true;
+                }
+            }
         }
     }
 
@@ -483,7 +527,7 @@ fn by_machine(root: &Path, m: &mut Manifest, sections: &BTreeMap<String, (String
                     if !envs.contains(v) {
                         continue;
                     }
-                    vacts.insert(name.clone(), Action { make: a.make.clone(), playbook: a.playbook.clone(), envs: vec![v.clone()] });
+                    vacts.insert(name.clone(), Action { make: a.make.clone(), playbook: a.playbook.clone(), envs: vec![v.clone()], includes_deploy: a.includes_deploy });
                     let rest: Vec<String> = envs.into_iter().filter(|e| e != v).collect();
                     if rest.is_empty() { drop.push(name.clone()) } else { a.envs = rest }
                 }
@@ -641,7 +685,7 @@ pub fn playbooks_only(root: &Path, lang: &str) -> Report {
         .map(|f| {
             let stem = f.path.rsplit('/').next().unwrap_or(&f.path).trim_end_matches(".yml").trim_end_matches(".yaml");
             let mut actions = BTreeMap::new();
-            actions.insert("deploy".into(), Action { make: None, playbook: Some(f.path.clone()), envs: vec![] });
+            actions.insert("deploy".into(), Action { make: None, playbook: Some(f.path.clone()), envs: vec![], includes_deploy: false });
             Service {
                 id: stem.to_string(),
                 label: stem.trim_start_matches(|c: char| c.is_ascii_digit() || c == '-' || c == '_').to_string(),
@@ -649,6 +693,7 @@ pub fn playbooks_only(root: &Path, lang: &str) -> Report {
                 release_key: None,
                 image: None,
                 per_env_image: false,
+                versions: None,
                 container: None,
                 description: None,
                 actions,
@@ -697,6 +742,15 @@ mod tests {
 
     /// Projectos reais, só lidos. Imprime o resumo e confirma a forma.
     #[test]
+    fn guesses_tag_formats() {
+        assert_eq!(guess_tag_format("1.17.0-staging-4be19d2-0a41dcef", "staging").as_deref(), Some("{version}-{env}-{commit}-{build}"));
+        assert_eq!(guess_tag_format("1.20.0-124d06b-c2e5b81f", "staging").as_deref(), Some("{version}-{commit}-{build}"));
+        assert_eq!(guess_tag_format("v2.3.1", "staging").as_deref(), Some("v{version}"));
+        assert_eq!(guess_tag_format("4be19d2a", "staging").as_deref(), Some("{commit}"));
+        assert_eq!(guess_tag_format("latest", "staging"), None);
+    }
+
+    #[test]
     fn real_projects() {
         let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
         for root in roots.split(':') {
@@ -710,7 +764,8 @@ mod tests {
                 println!("  produto {} — {}", p.label, p.description);
                 for s in &p.services {
                     println!("    {:<16} {:<8} key={:<16} img={:?} perEnv={} acções={:?}", s.label, s.kind, s.release_key.clone().unwrap_or("-".into()), s.image, s.per_env_image,
-                        s.actions.iter().map(|(k, a)| format!("{k}{}", if a.envs.is_empty() { String::new() } else { format!("{:?}", a.envs) })).collect::<Vec<_>>());
+                        s.actions.iter().map(|(k, a)| format!("{k}{}{}", if a.envs.is_empty() { String::new() } else { format!("{:?}", a.envs) }, if a.includes_deploy { "+deploy" } else { "" })).collect::<Vec<_>>());
+                    if let Some(v) = &s.versions { println!("      versões: {} {:?}", v.source, v.tag_format); }
                 }
             }
             for o in &r.manifest.operations {
