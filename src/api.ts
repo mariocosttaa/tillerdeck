@@ -60,6 +60,14 @@ export interface ConfigSetting {
   value: unknown;
 }
 
+export interface RunMeta {
+  title: string;
+  env?: string;
+  service?: string;
+  action?: string;
+  version?: string;
+}
+
 export interface HistoryEntry {
   id: string;
   root: string;
@@ -70,6 +78,7 @@ export interface HistoryEntry {
   exitCode: number | null;
   cancelled: boolean;
   logPath: string;
+  meta?: RunMeta;
 }
 
 export interface Environment {
@@ -109,7 +118,8 @@ export const api = {
   vaultView: (root: string, path: string) => invoke<string>("vault_view", { root, path }),
   vaultSave: (root: string, path: string, content: string) =>
     invoke<void>("vault_save", { root, path, content }),
-  runStart: (root: string, spec: RunSpec) => invoke<HistoryEntry>("run_start", { root, spec }),
+  runStart: (root: string, spec: RunSpec, meta?: RunMeta) =>
+    invoke<HistoryEntry>("run_start", { root, spec, meta: meta ?? null }),
   runCancel: (id: string) => invoke<string>("run_cancel", { id }),
   runHistory: () => invoke<HistoryEntry[]>("run_history"),
   runLog: (id: string) => invoke<string>("run_log", { id }),
@@ -117,6 +127,20 @@ export const api = {
   initialProject: () => invoke<string | null>("initial_project"),
   setDirty: (dirty: boolean) => invoke<void>("set_dirty", { dirty }),
   forceQuit: () => invoke<void>("force_quit"),
+  // v2
+  projectState: (root: string) => invoke<ProjectState>("project_state", { root }),
+  templateReport: (root: string, template: string) => invoke<TemplateReport>("template_report", { root, template }),
+  manifestSave: (root: string, manifest: Manifest) => invoke<void>("manifest_save", { root, manifest }),
+  releaseSet: (root: string, release: string, key: string, value: string) =>
+    invoke<string>("release_set", { root, release, key, value }),
+  releaseHistory: (root: string, release: string, key: string) =>
+    invoke<Revision[]>("release_history", { root, release, key }),
+  releaseCommit: (root: string, release: string, message: string) =>
+    invoke<string>("release_commit", { root, release, message }),
+  maintenanceState: (root: string, inventory: string) =>
+    invoke<Record<string, boolean>>("maintenance_state", { root, inventory }),
+  registryMatch: (url: string, image: string, fromTag: string, from: string, to: string) =>
+    invoke<{ prefix: string; candidates: string[] } | null>("registry_match", { url, image, fromTag, from, to }),
 };
 
 export function errorText(e: unknown): string {
@@ -137,4 +161,91 @@ export function looksLikeProduction(...values: (string | undefined)[]): boolean 
 
 export function shellQuote(a: string): string {
   return /^[\w@%+=:,./-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`;
+}
+
+// ---------------------------------------------------------------------------
+// v2 — o ansible-mario.json
+// ---------------------------------------------------------------------------
+
+export interface Action {
+  make?: string;
+  playbook?: string;
+  envs?: string[];
+}
+
+export interface Service {
+  id: string;
+  label: string;
+  kind: string;
+  releaseKey?: string;
+  image?: string;
+  perEnvImage?: boolean;
+  container?: string;
+  description?: string;
+  actions: Record<string, Action>;
+}
+
+export interface Product {
+  id: string;
+  label: string;
+  description: string;
+  services: Service[];
+}
+
+export interface Operation {
+  id: string;
+  label: string;
+  group: string;
+  description: string;
+  action: Action;
+  destructive: boolean;
+}
+
+export interface EnvDef {
+  id: string;
+  label: string;
+  inventory: string;
+  release?: string;
+  color: string;
+  protected: boolean;
+}
+
+export interface Manifest {
+  $schema?: string;
+  version: number;
+  name: string;
+  template?: string;
+  environments: EnvDef[];
+  promotion: { from: string; to: string }[];
+  registry?: { url: string };
+  products: Product[];
+  operations: Operation[];
+}
+
+export interface ProjectState {
+  manifest: Manifest | null;
+  manifestError: string | null;
+  problems: { path: string; message: string }[];
+  targets: string[];
+  releases: Record<string, Record<string, string>>;
+  git: { branch: string | null; dirty: string[] };
+  callbacks: string[];
+}
+
+export interface TemplateReport {
+  template: string;
+  compatible: boolean;
+  matched: number;
+  total: number;
+  manifest: Manifest;
+  unmatched: string[];
+  warnings: string[];
+}
+
+export interface Revision {
+  value: string;
+  short: string;
+  commit: string;
+  date: string;
+  subject: string;
 }
