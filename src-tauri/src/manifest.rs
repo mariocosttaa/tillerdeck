@@ -344,3 +344,24 @@ pub fn validate(root: &Path, m: &Manifest, targets: &BTreeSet<String>) -> Vec<Pr
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renames_the_old_file() {
+        let dir = std::env::temp_dir().join(format!("tillerdeck-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(LEGACY_FILE), r#"{"$schema":"https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json","version":2,"name":"Shop","environments":[]}"#).unwrap();
+        assert!(load(&dir).unwrap().is_none(), "the old name is not read");
+        adopt_legacy(&dir).unwrap();
+        assert!(!dir.join(LEGACY_FILE).exists());
+        let m = load(&dir).unwrap().unwrap();
+        assert_eq!(m.name, "Shop");
+        assert_eq!(m.schema.as_deref(), Some(SCHEMA));
+        assert!(adopt_legacy(&dir).is_err(), "never overwrites tillerdeck.json");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+}
