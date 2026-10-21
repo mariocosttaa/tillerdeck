@@ -52,6 +52,9 @@ export default function App() {
   const [refreshedAt, setRefreshedAt] = useState(Date.now());
   const [quit, setQuit] = useState<{ running: number; dirty: boolean } | null>(null);
   const [skipWizard, setSkipWizard] = useState(false);
+  // Boas-vindas a um projecto sem ansible-mario.json: uma vez por projecto.
+  const [welcomed, setWelcomed] = useState<Record<string, boolean>>({});
+  const welcomeKey = (root: string) => `ansible-mario.welcomed.${root}`;
   const [filesOpened, setFilesOpened] = useState(false);
   useEffect(() => {
     if (page === "ficheiros") setFilesOpened(true);
@@ -63,6 +66,7 @@ export default function App() {
     applyTheme(p.theme);
     setLang(p.lang);
     setPrefsState(p);
+
   }, []);
 
   const open = useCallback(async (path: string) => {
@@ -131,6 +135,11 @@ export default function App() {
   }, [loadMaint]);
 
   /** Actualizar: só leituras locais — releases, histórico, inventário. Nunca SSH. */
+  // os nomes do template automático vêm na língua escolhida
+  useEffect(() => {
+    if (proj.state?.auto) proj.refresh();
+  }, [prefs.lang]);
+
   const refresh = useCallback(async () => {
     if (!proj.project) return;
     setRefreshing(true);
@@ -323,6 +332,24 @@ export default function App() {
       </Shell>
       {confirm && <Confirm spec={confirm} onClose={() => setConfirm(null)} />}
       {palette && <Palette onClose={() => setPalette(false)} />}
+      {ws.state.auto && !welcomed[ws.project.root] && !(() => { try { return localStorage.getItem(welcomeKey(ws.project.root)); } catch { return null; } })() && (
+        <Wizard
+          first
+          autoTemplate={ws.state.auto.template}
+          root={ws.project.root}
+          name={ws.project.name}
+          toast={say}
+          onClose={() => {
+            try { localStorage.setItem(welcomeKey(ws.project.root), "1"); } catch { /* sem armazenamento */ }
+            setWelcomed((w) => ({ ...w, [ws.project.root]: true }));
+          }}
+          onApplied={() => {
+            try { localStorage.setItem(welcomeKey(ws.project.root), "1"); } catch { /* sem armazenamento */ }
+            setWelcomed((w) => ({ ...w, [ws.project.root]: true }));
+            proj.refresh();
+          }}
+        />
+      )}
       {deploy && <DeployDialog key={`${deploy.p.id}.${deploy.s.id}.${deploy.action}.${deploy.preset ?? ""}`} req={deploy} onClose={() => setDeploy(null)} />}
       {quitModal}
       {toastEl}

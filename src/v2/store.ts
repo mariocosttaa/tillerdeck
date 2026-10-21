@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { lang } from "./i18n";
 import { api, errorText, type HistoryEntry, type Project, type ProjectState, type RunMeta, type RunSpec } from "../api";
 import { parseSteps, type Step } from "./lib";
 
@@ -126,7 +127,7 @@ export function useProject() {
     setError(null);
     try {
       const p = await api.openProject(path);
-      const s = await api.projectState(p.root);
+      const s = await api.projectState(p.root, lang());
       setProject(p);
       setState(s);
       return p;
@@ -140,7 +141,7 @@ export function useProject() {
 
   const refresh = useCallback(async () => {
     if (!project) return;
-    const [p, s] = await Promise.all([api.openProject(project.root), api.projectState(project.root)]);
+    const [p, s] = await Promise.all([api.openProject(project.root), api.projectState(project.root, lang())]);
     setProject(p);
     setState(s);
   }, [project]);

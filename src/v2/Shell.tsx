@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Bell, Box, Boxes, Megaphone, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2,
+  Bell, Box, Boxes, Megaphone, Sparkles, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2,
 } from "lucide-react";
 import { useWs, type Page } from "./context";
+import { api, errorText } from "../api";
 import { EnvDot } from "./ui";
 import { cmpVersion, productOn, versionOf, where } from "./lib";
 import { relTime, t } from "./i18n";
@@ -123,9 +124,38 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
             </button>
             <button className="ib" title={t("Runs")} onClick={() => go("execucoes")}><Bell size={17} /></button>
           </header>
+          {ws.state.auto && <AutoBar />}
           <div className="relative flex min-h-0 flex-1">{children}</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** O projecto abriu sem ansible-mario.json: diz de onde veio e oferece gravar. */
+function AutoBar() {
+  const ws = useWs();
+  const a = ws.state.auto!;
+  const [busy, setBusy] = useState(false);
+  const from = a.template === "makefile-convention" ? t("your Makefile ({a} of {b} targets)", { a: a.matched, b: a.total }) : t("your playbooks");
+  async function save() {
+    setBusy(true);
+    try {
+      await api.manifestSave(ws.project.root, ws.manifest);
+      await ws.refresh();
+      ws.toast(t("ansible-mario.json saved"));
+    } catch (e) {
+      ws.toast(errorText(e), true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-3 border-b hair px-5 py-2 text-[12.5px]" style={{ background: "color-mix(in srgb, var(--w-accent) 9%, transparent)" }}>
+      <Sparkles size={14} className="shrink-0 text-accent" />
+      <span className="min-w-0 flex-1 truncate text-fg-2">{t("Automatic setup, read from {from}. Nothing is saved in the project yet.", { from })}</span>
+      <button className="b b-sm" onClick={() => openSettings(ws.go, "products")}>{t("Review")}</button>
+      <button className="b b-sm b-pri" disabled={busy} onClick={save}>{t("Save ansible-mario.json")}</button>
     </div>
   );
 }

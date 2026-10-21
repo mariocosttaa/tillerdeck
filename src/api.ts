@@ -129,7 +129,7 @@ export const api = {
   setDirty: (dirty: boolean) => invoke<void>("set_dirty", { dirty }),
   forceQuit: () => invoke<void>("force_quit"),
   // v2
-  projectState: (root: string) => invoke<ProjectState>("project_state", { root }),
+  projectState: (root: string, lang?: string) => invoke<ProjectState>("project_state", { root, lang: lang ?? null }),
   templateReport: (root: string, template: string, lang: string) => invoke<TemplateReport>("template_report", { root, template, lang }),
   varSet: (root: string, file: string, key: string, value: string) => invoke<string>("var_set", { root, file, key, value }),
   vaultKeySet: (root: string, file: string, key: string, value: string) => invoke<void>("vault_key_set", { root, file, key, value }),
@@ -311,6 +311,8 @@ export interface ProjectState {
   values: Record<string, Record<string, string>>;
   git: { branch: string | null; dirty: string[] };
   callbacks: string[];
+  /** sem ansible-mario.json: o manifesto veio do template mais compatível e ainda não está gravado */
+  auto: { template: string; matched: number; total: number } | null;
 }
 
 export interface TemplateReport {

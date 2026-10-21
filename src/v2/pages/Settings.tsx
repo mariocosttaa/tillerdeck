@@ -66,11 +66,13 @@ export function Settings() {
   const [jsonErr, setJsonErr] = useState<string | null>(null);
   const [wizard, setWizard] = useState(false);
   const saved = JSON.stringify(ws.manifest);
-  const dirty = JSON.stringify(draft) !== saved;
+  // sem ficheiro (template automático) há sempre o que gravar
+  const changed = JSON.stringify(draft) !== saved;
+  const dirty = changed || !!ws.state.auto;
 
   // A actualização automática não pode apagar o que se está a editar.
   useEffect(() => {
-    if (!dirty) {
+    if (!changed) {
       setDraft(ws.manifest);
       setJson(JSON.stringify(ws.manifest, null, 2));
     }
@@ -111,11 +113,13 @@ export function Settings() {
             <p className="min-w-0 flex-1 text-[13px] text-fg-2">{t("Saved on this computer only — each person chooses their own.")}</p>
           ) : (
             <p className="min-w-0 flex-1 text-[13px] text-fg-2">
-              {t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}
+              {ws.state.auto
+                ? <>{t("Automatic — read from the project. Save to create")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span>.</>
+                : <>{t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}</>}
             </p>
           )}
           {!personal && <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Apply template")}</button>}
-          {dirty && <button className="b b-ghost" onClick={() => update(ws.manifest)}><RotateCcw size={15} />{t("Discard")}</button>}
+          {changed && <button className="b b-ghost" onClick={() => update(ws.manifest)}><RotateCcw size={15} />{t("Discard")}</button>}
           {(!personal || dirty) && <button className="b b-pri" disabled={!dirty || !!jsonErr} onClick={save}><Save size={15} />{dirty ? t("Save") : t("Saved")}</button>}
         </div>
         <div className="mt-3 flex items-center gap-2">
@@ -148,7 +152,7 @@ export function Settings() {
         {tab === "servers" && <Servers m={draft} set={update} />}
         {tab === "products" && <Products m={draft} set={update} />}
         {tab === "operations" && <Operations m={draft} set={update} />}
-        {tab === "variables" && <Variables m={draft} set={update} dirty={dirty} />}
+        {tab === "variables" && <Variables m={draft} set={update} dirty={changed} />}
         {tab === "json" && (
           <div>
             <div className="mb-2 flex items-center gap-2 text-[12.5px]">
@@ -609,15 +613,18 @@ function AddVariable({ m, files, vaults, onClose, onAdd }: { m: Manifest; files:
 }
 
 /** Aplicar um template: a app lê o projecto e propõe; grava-se depois de rever. */
-export function Wizard({ root, name, toast, onClose, onApplied, first }: { root: string; name: string; toast: (t: string, bad?: boolean) => void; onClose: () => void; onApplied: () => void; first?: boolean }) {
+export function Wizard({ root, name, toast, onClose, onApplied, first, autoTemplate }: { root: string; name: string; toast: (t: string, bad?: boolean) => void; onClose: () => void; onApplied: () => void; first?: boolean; autoTemplate?: string }) {
   const [reports, setReports] = useState<Record<string, TemplateReport | null>>({});
-  const [choice, setChoice] = useState<string>("makefile-convention");
+  const [choice, setChoice] = useState<string>(autoTemplate ?? "makefile-convention");
   useEffect(() => {
     for (const tp of ["makefile-convention", "playbooks"]) api.templateReport(root, tp, lang()).then((r) => setReports((x) => ({ ...x, [tp]: r }))).catch(() => setReports((x) => ({ ...x, [tp]: null })));
   }, []);
   useEffect(() => {
-    if (reports["makefile-convention"] && !reports["makefile-convention"].compatible && reports.playbooks?.compatible) setChoice("playbooks");
+    if (!autoTemplate && reports["makefile-convention"] && !reports["makefile-convention"].compatible && reports.playbooks?.compatible) setChoice("playbooks");
   }, [reports]);
+  // Boas-vindas: o projecto já abriu com o template automático; escolher
+  // outro, ou guardar, é opcional.
+  const welcome = !!autoTemplate;
   const r = reports[choice];
   const services = r ? r.manifest.products.reduce((a, p) => a + p.services.length, 0) : 0;
 
@@ -652,8 +659,12 @@ export function Wizard({ root, name, toast, onClose, onApplied, first }: { root:
     <Modal onClose={onClose} width={660}>
       <div className="p-7">
         <span className="grid size-10 place-items-center rounded-xl text-accent" style={{ background: "color-mix(in srgb, var(--w-accent) 15%, transparent)" }}><Wand2 size={20} /></span>
-        <h2 className="mt-4 text-[20px] font-semibold tracking-tight">{first ? t("{name} has no settings yet", { name }) : t("Apply a template")}</h2>
-        <p className="mt-1 text-fg-2">{t("The app reads the project and proposes.")} {first ? t("Without settings, Files mode is still available.") : t("It replaces the current ansible-mario.json.")}</p>
+        <h2 className="mt-4 text-[20px] font-semibold tracking-tight">{welcome ? t("{name} is ready", { name }) : first ? t("{name} has no settings yet", { name }) : t("Apply a template")}</h2>
+        <p className="mt-1 text-fg-2">
+          {welcome
+            ? t("The app read your project with the most compatible template and opened it. Nothing is written to the repository until you save — and everything can be changed later in Settings.")
+            : <>{t("The app reads the project and proposes.")} {first ? t("Without settings, Files mode is still available.") : t("It replaces the current ansible-mario.json.")}</>}
+        </p>
         <div className="mt-5 space-y-2">
           {option("makefile-convention", t("Makefile convention"), <>{t("Targets")} <span className="font-mono">verb-product-technology-environment</span>, {t("like")} <span className="font-mono">deploy-shop-nestjs-staging</span>.</>)}
           {option("playbooks", t("Playbooks only"), t("One button per playbook, with the server's inventory and release."))}
@@ -669,10 +680,20 @@ export function Wizard({ root, name, toast, onClose, onApplied, first }: { root:
             {r.warnings.map((w) => <p key={w} className="mt-1 text-[12px] text-warn">{w}</p>)}
           </>
         )}
-        <div className="mt-6 flex justify-end gap-2">
-          <button className="b" onClick={onClose}>{first ? t("Not now") : t("Cancel")}</button>
-          <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}><Plus size={15} />{t("Create ansible-mario.json")}</button>
-        </div>
+        {welcome ? (
+          <div className="mt-6 flex justify-end gap-2">
+            <button className="b" disabled={!r} onClick={apply}><Save size={15} />{t("Save ansible-mario.json")}</button>
+            {choice === autoTemplate
+              ? <button className="b b-pri" onClick={onClose}>{t("Start")}</button>
+              : <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}>{t("Use this template")}</button>}
+          </div>
+        ) : (
+          <div className="mt-6 flex justify-end gap-2">
+            <button className="b" onClick={onClose}>{first ? t("Not now") : t("Cancel")}</button>
+            <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}><Plus size={15} />{t("Create ansible-mario.json")}</button>
+          </div>
+        )}
+        {welcome && <p className="mt-3 text-[12px] text-fg-3">{t("Saving puts ansible-mario.json in the project folder (not committed), so the team sees the same.")}</p>}
         {!first && <p className="mt-3 flex items-center gap-1.5 text-[12px] text-fg-3"><Trash2 size={12} />{t("Your manual changes to the current file are lost.")}</p>}
       </div>
     </Modal>
