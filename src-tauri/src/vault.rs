@@ -33,6 +33,21 @@ fn vault_id_label(header: &str) -> Option<String> {
     (parts.len() >= 4 && !parts[3].trim().is_empty()).then(|| parts[3].trim().to_string())
 }
 
+/// Está esta chave definida (não vazia) no vault? Só sai um sim/não.
+pub fn has_key(root: &Path, file: &str, key: &str) -> Result<bool, String> {
+    let text = view(root, file)?;
+    Ok(text.lines().any(|l| l.split_once(':').map(|(k, v)| k == key && !v.trim().trim_matches('"').is_empty()).unwrap_or(false)))
+}
+
+/// Troca o valor de uma chave dentro do vault: decifra em memória, troca a
+/// linha, volta a cifrar. O valor nunca passa pelo disco em claro.
+pub fn set_key(root: &Path, file: &str, key: &str, value: &str) -> Result<(), String> {
+    let text = view(root, file)?;
+    let quoted = format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
+    let (out, _) = crate::releases::replace_in_text(&text, key, &quoted)?;
+    save(root, file, &out)
+}
+
 pub fn save(root: &Path, file: &str, plaintext: &str) -> Result<(), String> {
     let abs = resolve(root, file)?;
     let current = fs::read_to_string(&abs).map_err(|e| e.to_string())?;
@@ -115,5 +130,24 @@ mod tests {
         // Sem restos do temporário.
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 3);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn set_key_keeps_the_file_encrypted() {
+        let dir = std::env::temp_dir().join(format!("ansible-mario-vkey-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("ansible.cfg"), "[defaults]\nvault_password_file = .vault_pass\n").unwrap();
+        std::fs::write(dir.join(".vault_pass"), "teste\n").unwrap();
+        std::fs::write(dir.join("v.yml"), "# segredos\nvault_hook: \"\"\nvault_other: x\n").unwrap();
+        assert!(crate::shell::run("ansible-vault", &["encrypt", "v.yml"], &dir).unwrap().ok);
+        assert!(!super::has_key(&dir, "v.yml", "vault_hook").unwrap(), "vazio conta como não definido");
+        super::set_key(&dir, "v.yml", "vault_hook", "https://exemplo/\"x\"").unwrap();
+        assert!(super::has_key(&dir, "v.yml", "vault_hook").unwrap());
+        let raw = std::fs::read_to_string(dir.join("v.yml")).unwrap();
+        assert!(raw.starts_with("$ANSIBLE_VAULT;") && !raw.contains("exemplo"));
+        let plain = super::view(&dir, "v.yml").unwrap();
+        assert!(plain.contains("# segredos") && plain.contains("vault_other: x"));
+        assert!(plain.contains(r#"vault_hook: "https://exemplo/\"x\"""#), "{plain}");
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

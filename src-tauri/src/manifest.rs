@@ -32,6 +32,37 @@ pub struct Manifest {
     pub products: Vec<Product>,
     #[serde(default)]
     pub operations: Vec<Operation>,
+    /// Variáveis do projecto que se ajustam na app (notificações, flags).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variables: Vec<Variable>,
+}
+
+/// Uma variável num ficheiro YAML do projecto, por servidor. `secret` vive
+/// num vault: a app escreve-a cifrada e nunca a mostra.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Variable {
+    pub id: String,
+    pub label: String,
+    #[serde(default)]
+    pub group: String,
+    /// bool · text · secret
+    pub kind: String,
+    pub key: String,
+    /// servidor → ficheiro
+    pub files: BTreeMap<String, String>,
+}
+
+/// Onde vive um produto num servidor que não é o "seu": o `saco-testes`
+/// corre na máquina da produção, com o seu inventário e o seu release.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Placement {
+    /// O que substitui `{env}` nos alvos (`testes`).
+    pub token: String,
+    pub inventory: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release: Option<String>,
 }
 
 fn two() -> u32 {
@@ -77,6 +108,12 @@ pub struct Product {
     pub label: String,
     #[serde(default)]
     pub description: String,
+    /// Os servidores onde o produto existe. Vazio = em todos.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub environments: Vec<String>,
+    /// servidor → onde vive lá, quando não é o inventário/release do servidor.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub placements: BTreeMap<String, Placement>,
     pub services: Vec<Service>,
 }
 
@@ -206,9 +243,47 @@ pub fn validate(root: &Path, m: &Manifest, targets: &BTreeSet<String>) -> Vec<Pr
         }
     };
     for p in &m.products {
+        // Os tokens onde este produto corre: o id do servidor, ou o do placement.
+        let servers: Vec<&str> = if p.environments.is_empty() { env_ids.iter().copied().collect() } else { p.environments.iter().map(|s| s.as_str()).collect() };
+        for srv in &servers {
+            if !env_ids.contains(srv) {
+                out.push(Problem { path: format!("products.{}", p.id), message: format!("servidor desconhecido: {srv}") });
+            }
+        }
+        let tokens: Vec<String> = servers.iter().map(|srv| p.placements.get(*srv).map(|x| x.token.clone()).unwrap_or_else(|| srv.to_string())).collect();
+        for (srv, pl) in &p.placements {
+            if !root.join(&pl.inventory).is_file() {
+                out.push(Problem { path: format!("products.{}.placements.{srv}", p.id), message: format!("o inventário {} não existe", pl.inventory) });
+            }
+            if let Some(r) = &pl.release {
+                if !root.join(r).is_file() {
+                    out.push(Problem { path: format!("products.{}.placements.{srv}", p.id), message: format!("o release {r} não existe") });
+                }
+            }
+        }
         for s in &p.services {
             for (name, a) in &s.actions {
-                check(format!("products.{}.{}.{name}", p.id, s.id), a, &mut out);
+                let path = format!("products.{}.{}.{name}", p.id, s.id);
+                match &a.make {
+                    Some(mk) => {
+                        let want: Vec<&String> = tokens.iter().filter(|t| a.envs.is_empty() || a.envs.contains(t)).collect();
+                        for t in want {
+                            let target = mk.replace("{env}", t);
+                            let name = target.split_whitespace().next().unwrap_or("").to_string();
+                            if !targets.contains(&name) {
+                                out.push(Problem { path: path.clone(), message: format!("o alvo `{name}` não existe no Makefile") });
+                            }
+                        }
+                    }
+                    None => check(path, a, &mut out),
+                }
+            }
+        }
+    }
+    for v in &m.variables {
+        for (srv, f) in &v.files {
+            if !root.join(f).is_file() {
+                out.push(Problem { path: format!("variables.{}.{srv}", v.id), message: format!("o ficheiro {f} não existe") });
             }
         }
     }

@@ -12,7 +12,7 @@
 //! serviço. Se um projecto não segue a convenção, diz-se quanto segue — a
 //! compatibilidade é um número, não um sim/não escondido.
 
-use crate::manifest::{self, Action, Environment, Manifest, Operation, Product, Promotion, Registry, Service};
+use crate::manifest::{self, Action, Environment, Manifest, Operation, Placement, Product, Promotion, Registry, Service, Variable};
 use crate::project::{self, MakeTarget};
 use crate::releases;
 use serde::Serialize;
@@ -84,10 +84,10 @@ fn kind_label(kind: &str) -> &'static str {
     }
 }
 
-fn env_meta(id: &str) -> (String, String, bool) {
+fn env_meta(id: &str, lang: &str) -> (String, String, bool) {
     let l = id.to_lowercase();
     if l.contains("prod") {
-        ("Produção".into(), "production".into(), true)
+        (if lang == "pt" { "Produção" } else { "Production" }.into(), "production".into(), true)
     } else if l.contains("stag") {
         ("Staging".into(), "staging".into(), false)
     } else if l.contains("test") || l.contains("qa") || l.contains("dev") {
@@ -111,41 +111,43 @@ fn first_segment(desc: &str) -> &str {
     desc.split(" · ").next().unwrap_or("").trim()
 }
 
-/// O nome de uma operação em português: o verbo traduzido e o resto com
-/// os nomes conhecidos (`provision-security` → `Provisionar segurança`).
-fn op_label(verb: &str, rest: &str) -> String {
+/// O nome de uma operação na língua pedida: o verbo traduzido e o resto com
+/// os nomes conhecidos (`provision-security` → `Provision security` / `Provisionar segurança`).
+fn op_label(verb: &str, rest: &str, lang: &str) -> String {
+    let pt = lang == "pt";
     let v = match verb {
-        "provision" => "Provisionar",
-        "deploy" => "Instalar",
-        "restore" => "Restaurar",
-        "restore-upload" => "Restaurar de ficheiros deste computador",
-        "restore-local" => "Restaurar de ficheiros na máquina",
-        "snapshots" => "Listar os snapshots",
+        "provision" => if pt { "Provisionar" } else { "Provision" },
+        "deploy" => if pt { "Instalar" } else { "Install" },
+        "restore" => if pt { "Restaurar" } else { "Restore" },
+        "restore-upload" => if pt { "Restaurar de ficheiros deste computador" } else { "Restore from files on this computer" },
+        "restore-local" => if pt { "Restaurar de ficheiros na máquina" } else { "Restore from files on the machine" },
+        "snapshots" => if pt { "Listar os snapshots" } else { "List snapshots" },
         "ping" => "Ping",
-        "status" => "Estado dos containers",
-        "logs" => "Logs de um container",
-        "history" => "Diário de deploys",
-        "audit-security" => "Auditoria de segurança",
-        "test" => "Testar",
-        "reset" => "Repor",
-        "run-migrations" => "Migrar",
-        "run-seed" => "Semear",
-        "maintenance-on" => "Fechar",
-        "maintenance-off" => "Reabrir",
+        "status" => if pt { "Estado dos containers" } else { "Container status" },
+        "logs" => if pt { "Logs de um container" } else { "Container logs" },
+        "history" => if pt { "Diário de deploys" } else { "Deploy log" },
+        "audit-security" => if pt { "Auditoria de segurança" } else { "Security audit" },
+        "test" => if pt { "Testar" } else { "Test" },
+        "reset" => if pt { "Repor" } else { "Reset" },
+        "run-migrations" => if pt { "Migrar" } else { "Migrate" },
+        "run-seed" => if pt { "Semear" } else { "Seed" },
+        "maintenance-on" => if pt { "Fechar" } else { "Close" },
+        "maintenance-off" => if pt { "Reabrir" } else { "Reopen" },
         other => return capitalize(&format!("{other} {rest}").replace('-', " ").trim().to_string()),
     };
-    let r = match rest {
-        "" => "",
-        "system" => "sistema",
-        "security" => "segurança",
-        "maintenance" => "manutenção",
-        "platform" => "plataforma",
-        "dbgate" => "DbGate",
-        "netdata" => "Netdata",
-        "kuma-push" => "Kuma",
-        "beszel" => "Beszel",
-        "local" => "deste computador",
-        other => other,
+    let r = match (rest, pt) {
+        ("", _) => "",
+        ("system", true) => "sistema",
+        ("security", true) => "segurança",
+        ("maintenance", true) => "manutenção",
+        ("platform", true) => "plataforma",
+        ("local", true) => "deste computador",
+        ("local", false) => "from this computer",
+        ("dbgate", _) => "DbGate",
+        ("netdata", _) => "Netdata",
+        ("kuma-push", _) => "Kuma",
+        ("beszel", _) => "Beszel",
+        (other, _) => other,
     };
     if r.is_empty() { v.to_string() } else { format!("{v} {}", r.replace('-', " ")) }
 }
@@ -208,7 +210,7 @@ fn release_keys(root: &Path, envs: &[Environment]) -> BTreeMap<String, BTreeMap<
 }
 
 /// Lista os ambientes a partir de `inventories/<nome>.ini|yml`.
-fn environments(root: &Path) -> Vec<Environment> {
+fn environments(root: &Path, lang: &str) -> Vec<Environment> {
     let mut envs = Vec::new();
     for dir in ["inventories", "inventory"] {
         let Ok(rd) = fs::read_dir(root.join(dir)) else { continue };
@@ -222,7 +224,7 @@ fn environments(root: &Path) -> Vec<Environment> {
             if !matches!(ext, "ini" | "yml" | "yaml") {
                 continue;
             }
-            let (label, color, protected) = env_meta(stem);
+            let (label, color, protected) = env_meta(stem, lang);
             let release = ["yml", "yaml"].iter().map(|x| format!("releases/{stem}.{x}")).find(|r| root.join(r).is_file());
             envs.push(Environment { id: stem.to_string(), label, inventory: format!("{dir}/{file}"), release, color, protected });
         }
@@ -231,10 +233,10 @@ fn environments(root: &Path) -> Vec<Environment> {
     envs
 }
 
-pub fn makefile_convention(root: &Path) -> Report {
+pub fn makefile_convention(root: &Path, lang: &str) -> Report {
     let project_name = root.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     let main_product = project_name.trim_end_matches("-infra").trim_end_matches("-ansible").to_string();
-    let envs = environments(root);
+    let envs = environments(root, lang);
     let env_ids: BTreeSet<String> = envs.iter().map(|e| e.id.clone()).collect();
     let targets: Vec<MakeTarget> = project::make_targets(root);
     let mut warnings = Vec::new();
@@ -244,6 +246,13 @@ pub fn makefile_convention(root: &Path) -> Report {
 
     // product → (label, description), pela secção `##@ produto · descrição`
     let mut product_meta: BTreeMap<String, (String, String)> = BTreeMap::new();
+    // toda a secção `##@ x · desc`, pela primeira palavra — serve os produtos de variantes
+    let mut sections: BTreeMap<String, (String, String)> = BTreeMap::new();
+    for t in &targets {
+        if let Some((head, desc)) = t.section.split_once(" · ") {
+            sections.entry(head.trim().to_lowercase()).or_insert((capitalize(head.trim()), desc.trim().to_string()));
+        }
+    }
     let mut product_order: Vec<String> = Vec::new();
     // (product, tech) → Service em construção
     let mut services: BTreeMap<(String, &'static str), Service> = BTreeMap::new();
@@ -320,7 +329,7 @@ pub fn makefile_convention(root: &Path) -> Report {
                 op_order.push(id.clone());
                 Operation {
                     id: id.clone(),
-                    label: op_label(p.verb, &p.rest),
+                    label: op_label(p.verb, &p.rest, lang),
                     group: op_group(&id, p.verb, &t.section).to_string(),
                     description: t.description.clone(),
                     action: Action {
@@ -383,6 +392,8 @@ pub fn makefile_convention(root: &Path) -> Report {
                 id: pid.clone(),
                 label,
                 description,
+                environments: vec![],
+                placements: BTreeMap::new(),
                 services: {
                     let mut v: Vec<Service> = service_order.iter().filter(|(p, _)| p == pid).map(|k| services[k].clone()).collect();
                     let rank = |k: &str| ["nestjs", "worker", "nextjs", "vite", "service", "nginx", "postgres", "mysql", "mongodb", "redis"].iter().position(|x| *x == k).unwrap_or(9);
@@ -405,31 +416,223 @@ pub fn makefile_convention(root: &Path) -> Report {
         warnings.push("não há Makefile com alvos".into());
     }
 
-    Report {
-        template: "makefile-convention".into(),
-        compatible,
-        matched,
-        total,
-        manifest: Manifest {
-            schema: Some(manifest::SCHEMA.into()),
-            version: 2,
-            name: capitalize(&main_product),
-            template: Some("makefile-convention".into()),
-            environments: envs,
-            promotion,
-            registry: None::<Registry>,
-            products,
-            operations: op_order.iter().map(|id| ops[id].clone()).collect(),
-        },
-        unmatched,
-        warnings,
+    let mut manifest = Manifest {
+        schema: Some(manifest::SCHEMA.into()),
+        version: 2,
+        name: capitalize(&main_product),
+        template: Some("makefile-convention".into()),
+        environments: envs.clone(),
+        promotion,
+        registry: None::<Registry>,
+        products,
+        operations: op_order.iter().map(|id| ops[id].clone()).collect(),
+        variables: vec![],
+    };
+    let variants = by_machine(root, &mut manifest, &sections);
+    manifest.variables = detect_variables(root, &envs, &variants);
+
+    Report { template: "makefile-convention".into(), compatible, matched, total, manifest, unmatched, warnings }
+}
+
+/// `(nome do host, ansible_host)` do primeiro host de um inventário INI.
+fn inventory_host(root: &Path, inv: &str) -> Option<(String, String)> {
+    let text = fs::read_to_string(root.join(inv)).ok()?;
+    for line in text.lines() {
+        let l = line.trim();
+        if l.is_empty() || l.starts_with('#') || l.starts_with(';') || l.starts_with('[') {
+            continue;
+        }
+        let name = l.split_whitespace().next()?.to_string();
+        let addr = l.split_whitespace().find_map(|kv| kv.strip_prefix("ansible_host=")).unwrap_or(&name).to_string();
+        return Some((name, addr));
     }
+    None
+}
+
+/// Servidores são máquinas. Um inventário que aponta para a mesma máquina
+/// que a staging ou a produção (o `saco-testes` na máquina da produção) não
+/// é um servidor: passa a produto(s) desse servidor, com o seu inventário e
+/// release (um placement), e as operações dele ficam no servidor com o
+/// alvo já resolvido. Devolve variante → servidor.
+fn by_machine(root: &Path, m: &mut Manifest, sections: &BTreeMap<String, (String, String)>) -> BTreeMap<String, String> {
+    let all: Vec<String> = m.environments.iter().map(|e| e.id.clone()).collect();
+    let host = |id: &str| m.environments.iter().find(|e| e.id == id).and_then(|e| inventory_host(root, &e.inventory)).map(|h| h.1);
+    let servers: Vec<String> = m.environments.iter().filter(|e| e.color == "staging" || e.color == "production").map(|e| e.id.clone()).collect();
+    let mut variants: BTreeMap<String, String> = BTreeMap::new();
+    for e in &m.environments {
+        if servers.contains(&e.id) {
+            continue;
+        }
+        if let Some(h) = host(&e.id) {
+            if let Some(s) = servers.iter().find(|s| host(s).as_deref() == Some(h.as_str())) {
+                variants.insert(e.id.clone(), s.clone());
+            }
+        }
+    }
+    for (v, srv) in &variants {
+        let venv = m.environments.iter().find(|e| &e.id == v).cloned().unwrap();
+        let expand = |envs: &Vec<String>| if envs.is_empty() { all.clone() } else { envs.clone() };
+        let mut extra_products = Vec::new();
+        for p in m.products.iter_mut() {
+            let mut vsvcs = Vec::new();
+            for svc in p.services.iter_mut() {
+                let mut vacts = BTreeMap::new();
+                let mut drop = Vec::new();
+                for (name, a) in svc.actions.iter_mut() {
+                    let envs = expand(&a.envs);
+                    if !envs.contains(v) {
+                        continue;
+                    }
+                    vacts.insert(name.clone(), Action { make: a.make.clone(), playbook: a.playbook.clone(), envs: vec![v.clone()] });
+                    let rest: Vec<String> = envs.into_iter().filter(|e| e != v).collect();
+                    if rest.is_empty() { drop.push(name.clone()) } else { a.envs = rest }
+                }
+                for d in drop {
+                    svc.actions.remove(&d);
+                }
+                if !vacts.is_empty() {
+                    let mut c = svc.clone();
+                    c.actions = vacts;
+                    vsvcs.push(c);
+                }
+            }
+            p.services.retain(|s| !s.actions.is_empty());
+            if !vsvcs.is_empty() {
+                let desc = sections.get(&v.to_lowercase()).map(|x| x.1.clone()).unwrap_or_default();
+                let mut placements = BTreeMap::new();
+                placements.insert(srv.clone(), Placement { token: v.clone(), inventory: venv.inventory.clone(), release: venv.release.clone() });
+                extra_products.push(Product {
+                    id: format!("{}-{v}", p.id),
+                    label: format!("{} {}", p.label, venv.label),
+                    description: desc,
+                    environments: vec![srv.clone()],
+                    placements,
+                    services: vsvcs,
+                });
+            }
+        }
+        m.products.retain(|p| !p.services.is_empty());
+        m.products.extend(extra_products);
+
+        let mut extra_ops = Vec::new();
+        let mut gone = Vec::new();
+        for o in m.operations.iter_mut() {
+            let envs = expand(&o.action.envs);
+            // sem `{env}` no alvo, a operação não é de nenhum ambiente
+            if !envs.contains(v) || !o.action.make.as_deref().unwrap_or("").contains("{env}") {
+                continue;
+            }
+            let mut baked = o.clone();
+            baked.id = format!("{}-{v}", o.id);
+            baked.label = format!("{} ({})", o.label, venv.label);
+            baked.action.make = o.action.make.as_ref().map(|mk| mk.replace("{env}", v));
+            baked.action.envs = vec![srv.clone()];
+            extra_ops.push(baked);
+            let rest: Vec<String> = envs.into_iter().filter(|e| e != v).collect();
+            if rest.is_empty() { gone.push(o.id.clone()) } else { o.action.envs = rest }
+        }
+        m.operations.retain(|o| !gone.contains(&o.id));
+        m.operations.extend(extra_ops);
+        m.environments.retain(|e| &e.id != v);
+        m.promotion.retain(|p| &p.from != v && &p.to != v);
+    }
+    // envs que cobrem todos os servidores que restam = em todos
+    let left: BTreeSet<String> = m.environments.iter().map(|e| e.id.clone()).collect();
+    let norm = |a: &mut Action| {
+        let set: BTreeSet<String> = a.envs.iter().cloned().collect();
+        if !a.envs.is_empty() && set == left {
+            a.envs.clear();
+        }
+    };
+    for p in m.products.iter_mut().filter(|p| p.placements.is_empty()) {
+        for s in p.services.iter_mut() {
+            for a in s.actions.values_mut() {
+                norm(a);
+            }
+        }
+    }
+    for o in m.operations.iter_mut() {
+        norm(&mut o.action);
+    }
+    variants
+}
+
+fn humanize_key(k: &str) -> String {
+    capitalize(&k.replace('_', " "))
+}
+
+/// Variáveis que se ajustam na app: o `notify.yml` de cada máquina e as
+/// flags `*_enabled` dos host_vars. Um valor `{{ vault_x }}` é um segredo:
+/// a variável aponta para a chave `vault_x` no vault da mesma pasta.
+fn detect_variables(root: &Path, envs: &[Environment], variants: &BTreeMap<String, String>) -> Vec<Variable> {
+    let mut vars: BTreeMap<String, Variable> = BTreeMap::new();
+    let mut order: Vec<String> = Vec::new();
+    for e in envs {
+        let Some((hostname, _)) = inventory_host(root, &e.inventory) else { continue };
+        let inv_dir = Path::new(&e.inventory).parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+        let dir = format!("{inv_dir}/host_vars/{hostname}");
+        if !root.join(&dir).is_dir() {
+            continue;
+        }
+        let (server, suffix) = match variants.get(&e.id) {
+            Some(s) => (s.clone(), Some(e.label.clone())),
+            None => (e.id.clone(), None),
+        };
+        let mut files: Vec<String> = walkdir::WalkDir::new(root.join(&dir))
+            .into_iter()
+            .flatten()
+            .filter(|f| f.file_type().is_file())
+            .map(|f| f.path().strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/"))
+            .filter(|f| (f.ends_with(".yml") || f.ends_with(".yaml")) && !f.ends_with("/vault.yml"))
+            .collect();
+        files.sort();
+        for f in files {
+            let is_notify = f.ends_with("/notify.yml");
+            let Ok(kv) = releases::read(root, &f) else { continue };
+            for (k, v) in kv {
+                let val = v.trim();
+                let (kind, key, file) = if let Some(inner) = val.strip_prefix("{{").and_then(|x| x.strip_suffix("}}")) {
+                    let vk = inner.trim();
+                    let vault = format!("{dir}/vault.yml");
+                    if !is_notify || !vk.starts_with("vault_") || !root.join(&vault).is_file() {
+                        continue;
+                    }
+                    ("secret", vk.to_string(), vault)
+                } else if val == "true" || val == "false" {
+                    if !is_notify && !k.ends_with("_enabled") {
+                        continue;
+                    }
+                    ("bool", k.clone(), f.clone())
+                } else if is_notify {
+                    ("text", k.clone(), f.clone())
+                } else {
+                    continue;
+                };
+                let id = match &suffix { Some(_) => format!("{k}@{}", e.id), None => k.clone() };
+                // o grupo é o caminho dentro da pasta da máquina: `notify`, `saco-admin/nestjs`
+                let group = f.trim_start_matches(&format!("{dir}/")).trim_end_matches(".yaml").trim_end_matches(".yml").to_string();
+                let entry = vars.entry(id.clone()).or_insert_with(|| {
+                    order.push(id.clone());
+                    Variable {
+                        id: id.clone(),
+                        label: match &suffix { Some(sfx) => format!("{} ({sfx})", humanize_key(&k)), None => humanize_key(&k) },
+                        group,
+                        kind: kind.into(),
+                        key: key.clone(),
+                        files: BTreeMap::new(),
+                    }
+                });
+                entry.files.insert(server.clone(), file);
+            }
+        }
+    }
+    order.into_iter().map(|id| vars.remove(&id).unwrap()).collect()
 }
 
 /// Sem Makefile: um serviço por playbook, corrido com o inventário e o
 /// release do ambiente escolhido.
-pub fn playbooks_only(root: &Path) -> Report {
-    let envs = environments(root);
+pub fn playbooks_only(root: &Path, lang: &str) -> Report {
+    let envs = environments(root, lang);
     let scan = project::scan(root);
     let services: Vec<Service> = scan
         .files
@@ -467,8 +670,9 @@ pub fn playbooks_only(root: &Path) -> Report {
             promotion: vec![],
             environments: envs,
             registry: None,
-            products: vec![Product { id: "playbooks".into(), label: "Playbooks".into(), description: String::new(), services }],
+            products: vec![Product { id: "playbooks".into(), label: "Playbooks".into(), description: String::new(), environments: vec![], placements: BTreeMap::new(), services }],
             operations: vec![],
+            variables: vec![],
         },
         unmatched: vec![],
         warnings: vec![],
@@ -497,7 +701,7 @@ mod tests {
         let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
         for root in roots.split(':') {
             let root = Path::new(root);
-            let r = makefile_convention(root);
+            let r = makefile_convention(root, "pt");
             println!("\n== {} · {}/{} alvos · compatível: {}", root.display(), r.matched, r.total, r.compatible);
             for e in &r.manifest.environments {
                 println!("  env {} ({}) inv={} rel={:?} prot={}", e.id, e.color, e.inventory, e.release, e.protected);
@@ -511,6 +715,9 @@ mod tests {
             }
             for o in &r.manifest.operations {
                 println!("  op [{}] {} {:?}{}", o.group, o.id, o.action.envs, if o.destructive { " ⚠ destrutiva" } else { "" });
+            }
+            for v in &r.manifest.variables {
+                println!("  var [{}] {} ({}) {} → {:?}", v.group, v.id, v.kind, v.key, v.files);
             }
             println!("  fora: {:?}", r.unmatched);
             println!("  avisos: {:?}", r.warnings);

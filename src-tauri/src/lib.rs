@@ -114,8 +114,10 @@ struct ProjectState {
     problems: Vec<manifest::Problem>,
     /// Os alvos que existem no Makefile — um botão sem alvo fica desligado.
     targets: Vec<String>,
-    /// env → (chave → valor) de cada releases/<env>.yml
+    /// ficheiro de release → (chave → valor)
     releases: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    /// ficheiro → (chave → valor), para as variáveis que não são segredos
+    values: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
     git: ops::GitInfo,
     callbacks: Vec<String>,
 }
@@ -130,15 +132,24 @@ async fn project_state(root: String) -> Result<ProjectState, String> {
             Err(e) => (None, Some(e)),
         };
         let problems = manifest.as_ref().map(|m| manifest::validate(&r, m, &targets)).unwrap_or_default();
-        let releases = manifest
-            .as_ref()
-            .map(|m| {
-                m.environments
-                    .iter()
-                    .filter_map(|e| e.release.as_ref().map(|rel| (e.id.clone(), releases::read(&r, rel).unwrap_or_default())))
-                    .collect()
-            })
-            .unwrap_or_default();
+        // Por ficheiro: um produto pode ler o seu release noutro servidor.
+        let mut releases = std::collections::BTreeMap::new();
+        let mut values = std::collections::BTreeMap::new();
+        if let Some(m) = &manifest {
+            let paths = m.environments.iter().filter_map(|e| e.release.clone())
+                .chain(m.products.iter().flat_map(|p| p.placements.values().filter_map(|x| x.release.clone())));
+            for rel in paths {
+                releases.insert(rel.clone(), releases::read(&r, &rel).unwrap_or_default());
+            }
+            // Os valores das variáveis que não são segredos.
+            for v in m.variables.iter().filter(|v| v.kind != "secret") {
+                for f in v.files.values() {
+                    if !values.contains_key(f) {
+                        values.insert(f.clone(), releases::read(&r, f).unwrap_or_default());
+                    }
+                }
+            }
+        }
         let callbacks = project::config_dump(&r)
             .ok()
             .and_then(|v| v.as_array().cloned())
@@ -146,19 +157,20 @@ async fn project_state(root: String) -> Result<ProjectState, String> {
             .and_then(|c| c.get("value").and_then(|v| v.as_array()).cloned())
             .map(|a| a.into_iter().filter_map(|x| x.as_str().map(String::from)).collect())
             .unwrap_or_default();
-        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, git: ops::git_info(&r), callbacks })
+        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, values, git: ops::git_info(&r), callbacks })
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn template_report(root: String, template: String) -> Result<template::Report, String> {
+async fn template_report(root: String, template: String, lang: Option<String>) -> Result<template::Report, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let r = root_path(&root);
+        let lang = lang.unwrap_or_else(|| "en".into());
         match template.as_str() {
-            "makefile-convention" => Ok(template::makefile_convention(&r)),
-            "playbooks" => Ok(template::playbooks_only(&r)),
+            "makefile-convention" => Ok(template::makefile_convention(&r, &lang)),
+            "playbooks" => Ok(template::playbooks_only(&r, &lang)),
             other => Err(format!("template desconhecido: {other}")),
         }
     })
@@ -169,6 +181,25 @@ async fn template_report(root: String, template: String) -> Result<template::Rep
 #[tauri::command]
 fn manifest_save(root: String, manifest: manifest::Manifest) -> Result<(), String> {
     manifest::save(&root_path(&root), &manifest)
+}
+
+#[tauri::command]
+fn var_set(root: String, file: String, key: String, value: String) -> Result<String, String> {
+    releases::set(&root_path(&root), &file, &key, &value)
+}
+
+#[tauri::command]
+async fn vault_key_set(root: String, file: String, key: String, value: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || vault::set_key(&root_path(&root), &file, &key, &value))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn vault_key_has(root: String, file: String, key: String) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || vault::has_key(&root_path(&root), &file, &key))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -350,6 +381,9 @@ pub fn run() {
             release_commit,
             maintenance_state,
             registry_match,
+            var_set,
+            vault_key_set,
+            vault_key_has,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

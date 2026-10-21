@@ -36,16 +36,12 @@ pub fn read(root: &Path, rel: &str) -> Result<BTreeMap<String, String>, String> 
     Ok(text.lines().filter_map(parse_line).map(|(k, v, _)| (k, v)).collect())
 }
 
-/// Troca o valor de UMA chave e devolve o anterior. Escreve num temporário
-/// e renomeia; depois relê e confirma que só essa chave mudou.
-pub fn set(root: &Path, rel: &str, key: &str, value: &str) -> Result<String, String> {
-    if value.contains('\n') || value.trim().is_empty() {
+/// Troca, num texto YAML, o valor de UMA chave de topo. Devolve o texto novo
+/// e o valor anterior. Falha se a chave não aparecer exactamente uma vez.
+pub fn replace_in_text(text: &str, key: &str, value: &str) -> Result<(String, String), String> {
+    if value.contains('\n') {
         return Err("valor inválido".into());
     }
-    let path = resolve(root, rel)?;
-    let text = fs::read_to_string(&path).map_err(|e| format!("{rel}: {e}"))?;
-    let before = read(root, rel)?;
-
     let mut old = None;
     let mut hits = 0;
     let mut out = String::with_capacity(text.len() + 16);
@@ -62,8 +58,24 @@ pub fn set(root: &Path, rel: &str, key: &str, value: &str) -> Result<String, Str
         }
     }
     if hits != 1 {
-        return Err(format!("`{key}` aparece {hits} vezes em {rel} — esperava uma"));
+        return Err(format!("`{key}` aparece {hits} vezes — esperava uma"));
     }
+    Ok((out, old.unwrap_or_default()))
+}
+
+/// Troca o valor de UMA chave e devolve o anterior. Escreve num temporário
+/// e renomeia; depois relê e confirma que só essa chave mudou.
+pub fn set(root: &Path, rel: &str, key: &str, value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        return Err("valor inválido".into());
+    }
+    let path = resolve(root, rel)?;
+    let text = fs::read_to_string(&path).map_err(|e| format!("{rel}: {e}"))?;
+    if text.starts_with("$ANSIBLE_VAULT;") {
+        return Err(format!("{rel} está cifrado — usa o vault"));
+    }
+    let before = read(root, rel)?;
+    let (out, old) = replace_in_text(&text, key, value).map_err(|e| format!("{rel}: {e}"))?;
 
     let tmp = path.with_file_name(format!(".{}.ansible-mario.tmp", path.file_name().unwrap().to_string_lossy()));
     fs::write(&tmp, &out).map_err(|e| e.to_string())?;
@@ -71,13 +83,13 @@ pub fn set(root: &Path, rel: &str, key: &str, value: &str) -> Result<String, Str
 
     let after = read(root, rel)?;
     let mut expected = before.clone();
-    expected.insert(key.to_string(), value.to_string());
+    expected.insert(key.to_string(), value.trim_matches('"').to_string());
     if after != expected {
         // Não devia acontecer; se acontecer, repõe o original.
         let _ = fs::write(&path, &text);
         return Err(format!("a escrita de {rel} mudou mais do que `{key}` — reposto o original"));
     }
-    Ok(old.unwrap_or_default())
+    Ok(old)
 }
 
 /// Como se mostra uma versão: `1.21.0-8f3a2c1-…` → `1.21.0`; um SHA → 7 chars.
