@@ -540,7 +540,7 @@ function Variables({ m, set, dirty }: { m: Manifest; set: (m: Manifest) => void;
   );
 }
 
-function SecretDialog({ v, server, onClose }: { v: Variable; server: string; onClose: () => void }) {
+export function SecretDialog({ v, server, onClose }: { v: Variable; server: string; onClose: () => void }) {
   const ws = useWs();
   const [has, setHas] = useState<boolean | null>(null);
   const [val, setVal] = useState("");

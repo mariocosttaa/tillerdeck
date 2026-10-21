@@ -23,7 +23,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
 
   const cmds = useMemo<Cmd[]>(() => {
     const out: Cmd[] = [];
-    const pages: [Page, string][] = [["servicos", t("Services")], ["builds", t("Builds")], ["promover", t("Promote")], ["backups", t("Backups")], ["maquina", t("Machine")], ["execucoes", t("Runs")], ["definicoes", t("Settings")], ["ficheiros", t("Files")]];
+    const pages: [Page, string][] = [["servicos", t("Services")], ["builds", t("Builds")], ["notificacoes", t("Notifications")], ["promover", t("Promote")], ["backups", t("Backups")], ["maquina", t("Machine")], ["execucoes", t("Runs")], ["definicoes", t("Settings")], ["ficheiros", t("Files")]];
     for (const p of ws.manifest.products.filter((p) => productOn(p, ws.env.id))) {
       for (const s of p.services) {
         for (const a of Object.keys(s.actions)) {

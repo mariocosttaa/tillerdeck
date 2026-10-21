@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Bell, Box, Boxes, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2,
+  Bell, Box, Boxes, Megaphone, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2,
 } from "lucide-react";
 import { useWs, type Page } from "./context";
 import { EnvDot } from "./ui";
@@ -65,6 +65,7 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
           {promo && nav("promover", <GitCompareArrows size={16} />, t("Promote"), ahead > 0 && <span className="pill !h-5 !px-1.5 text-[11px] text-white" style={{ background: "var(--w-accent)" }}>{ahead}</span>)}
           {m.operations.some((o) => o.group === "backup") && nav("backups", <DatabaseBackup size={16} />, t("Backups"))}
           {nav("maquina", <ServerCog size={16} />, t("Machine"))}
+          {(m.variables ?? []).some((v) => v.category === "notifications") && nav("notificacoes", <Megaphone size={16} />, t("Notifications"))}
           {here.length > 1 && (
             <>
               <div className="nav-h">{t("Products on {env}", { env: env.label })}</div>
@@ -96,7 +97,7 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
         <div className="panel flex h-full flex-col overflow-hidden">
           <header className="flex h-[56px] shrink-0 items-center gap-3 border-b hair px-5" data-tauri-drag-region>
             <h1 className="truncate text-[15px] font-semibold">{title}</h1>
-            {page !== "ficheiros" && page !== "definicoes" && (
+            {page !== "ficheiros" && page !== "definicoes" && page !== "notificacoes" && (
               <div className="seg ml-3 shrink-0">
                 {m.environments.map((e) => (
                   <button key={e.id} className={e.id === env.id ? "on" : ""} onClick={() => ws.setEnv(e.id)}>

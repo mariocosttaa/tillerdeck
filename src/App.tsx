@@ -11,6 +11,7 @@ import { LogPanel, RunCard } from "./v2/RunViews";
 import { Palette } from "./v2/Palette";
 import { DeployDialog, type DeployRequest } from "./v2/DeployDialog";
 import { Builds } from "./v2/pages/Builds";
+import { Notifications } from "./v2/pages/Notifications";
 import { Services } from "./v2/pages/Services";
 import { Promote } from "./v2/pages/Promote";
 import { Backups, Machine } from "./v2/pages/Ops";
@@ -294,7 +295,7 @@ export default function App() {
   }
 
   // --------------------------------------------------------------- a app v2
-  const titles: Record<string, string> = { servicos: t("Services"), builds: t("Builds"), promover: t("Promote"), backups: t("Backups"), maquina: t("Machine"), execucoes: t("Runs"), definicoes: t("Settings"), ficheiros: t("Files") };
+  const titles: Record<string, string> = { servicos: t("Services"), builds: t("Builds"), notificacoes: t("Notifications"), promover: t("Promote"), backups: t("Backups"), maquina: t("Machine"), execucoes: t("Runs"), definicoes: t("Settings"), ficheiros: t("Files") };
   const product = page.startsWith("produto:") ? ws.manifest.products.find((p) => `produto:${p.id}` === page) : undefined;
   const focusedRun = focus ? runs.runs[focus] : undefined;
 
@@ -304,6 +305,7 @@ export default function App() {
         {page === "servicos" && <Services />}
         {product && <Services productId={product.id} />}
         {page === "builds" && <Builds />}
+        {page === "notificacoes" && <Notifications />}
         {page === "promover" && <Promote />}
         {page === "backups" && <Backups />}
         {page === "maquina" && <Machine />}

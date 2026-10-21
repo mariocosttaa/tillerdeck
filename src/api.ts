@@ -263,6 +263,10 @@ export interface Variable {
   kind: "bool" | "text" | "secret" | string;
   key: string;
   files: Record<string, string>;
+  /** `notifications`: aparece no ecrã das Notificações */
+  category?: string;
+  /** o token de um produto noutra máquina (`testes`) */
+  target?: string;
 }
 
 export interface Operation {

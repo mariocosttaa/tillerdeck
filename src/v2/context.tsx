@@ -8,7 +8,7 @@ import { t } from "./i18n";
 import type { Prefs } from "./prefs";
 import type { DeployRequest } from "./DeployDialog";
 
-export type Page = "servicos" | "builds" | "promover" | "backups" | "maquina" | "execucoes" | "definicoes" | "ficheiros" | `produto:${string}`;
+export type Page = "servicos" | "builds" | "notificacoes" | "promover" | "backups" | "maquina" | "execucoes" | "definicoes" | "ficheiros" | `produto:${string}`;
 
 export interface Ws {
   project: Project;
