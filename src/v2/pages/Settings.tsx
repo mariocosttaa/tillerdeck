@@ -14,7 +14,7 @@ type Tab = "general" | "servers" | "products" | "operations" | "variables" | "js
 
 /** Abrir as Definições num separador (o ⚙ da barra lateral abre as Preferências). */
 export function openSettings(go: (p: "definicoes") => void, tab: Tab) {
-  try { sessionStorage.setItem("ansible-mario.settingsTab", tab); } catch { /* sem armazenamento */ }
+  try { sessionStorage.setItem("tillerdeck.settingsTab", tab); } catch { /* sem armazenamento */ }
   go("definicoes");
   window.dispatchEvent(new CustomEvent("am-settings-tab", { detail: tab }));
 }
@@ -51,8 +51,8 @@ export function Settings() {
   const ws = useWs();
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      const v = sessionStorage.getItem("ansible-mario.settingsTab") as Tab | null;
-      sessionStorage.removeItem("ansible-mario.settingsTab");
+      const v = sessionStorage.getItem("tillerdeck.settingsTab") as Tab | null;
+      sessionStorage.removeItem("tillerdeck.settingsTab");
       return v ?? "products";
     } catch {
       return "products";
@@ -90,7 +90,7 @@ export function Settings() {
     try {
       await api.manifestSave(ws.project.root, draft);
       await ws.refresh();
-      ws.toast(t("ansible-mario.json saved"));
+      ws.toast(t("tillerdeck.json saved"));
     } catch (e) {
       ws.toast(errorText(e), true);
     }
@@ -117,8 +117,8 @@ export function Settings() {
           ) : (
             <p className="min-w-0 flex-1 text-[13px] text-fg-2">
               {ws.state.auto
-                ? <>{t("Automatic — read from the project. Save to create")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span>.</>
-                : <>{t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}</>}
+                ? <>{t("Automatic — read from the project. Save to create")} <span className="font-mono text-fg">{ws.project.name}/tillerdeck.json</span>.</>
+                : <>{t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/tillerdeck.json</span> — {t("it travels with the repository, the team sees the same.")}</>}
             </p>
           )}
           {!personal && <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Detect again")}</button>}
@@ -159,7 +159,7 @@ export function Settings() {
         {tab === "json" && (
           <div>
             <div className="mb-2 flex items-center gap-2 text-[12.5px]">
-              <FileCode2 size={15} className="text-fg-3" /><span className="font-mono">ansible-mario.json</span>
+              <FileCode2 size={15} className="text-fg-3" /><span className="font-mono">tillerdeck.json</span>
               <span className="ml-auto">{jsonErr ? <Tint color="var(--danger)">{t("invalid JSON")}</Tint> : dirty ? <Tint color="var(--w-accent)">{t("unsaved")}</Tint> : <Tint color="var(--ok)"><CircleCheck size={12} />{t("saved")}</Tint>}</span>
             </div>
             <textarea

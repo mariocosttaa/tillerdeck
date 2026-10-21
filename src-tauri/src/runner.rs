@@ -363,7 +363,7 @@ mod tests {
 
     /// Um projecto só com `localhost` e ligação local: nenhuma máquina é tocada.
     fn local_project(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("ansible-mario-run-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("tillerdeck-run-{name}-{}", std::process::id()));
         fs::create_dir_all(dir.join("inventories")).unwrap();
         fs::write(dir.join("ansible.cfg"), "[defaults]\nretry_files_enabled = false\n").unwrap();
         fs::write(dir.join("inventories/local.ini"), "[local]\nlocalhost ansible_connection=local ansible_python_interpreter=auto_silent\n").unwrap();

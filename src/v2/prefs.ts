@@ -1,4 +1,4 @@
-// Preferências desta pessoa neste computador — não vão para o ansible-mario.json.
+// Preferências desta pessoa neste computador — não vão para o tillerdeck.json.
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export type Lang = "en" | "pt";
@@ -10,7 +10,7 @@ export interface Prefs {
   refreshMin: number;
 }
 
-const KEY = "ansible-mario.prefs";
+const KEY = "tillerdeck.prefs";
 export const DEFAULT_PREFS: Prefs = { lang: "en", theme: "auto", refreshMin: 3 };
 
 export function loadPrefs(): Prefs {

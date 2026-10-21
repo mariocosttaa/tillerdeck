@@ -52,7 +52,7 @@ export function Shell({ title, children, sw }: { title: string; children: ReactN
         </div>
         <div className="mb-2">
         <ProjectMenu sw={sw} className="raise flex w-full items-center gap-3 px-3 py-2.5 text-left">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg text-[13px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c6cff,#4a8cff)" }}>
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg text-[13px] font-semibold text-white" style={{ background: "#6B5BF5" }}>
             {(m.name || ws.project.name).slice(0, 1).toUpperCase()}
           </span>
           <span className="min-w-0 flex-1">
@@ -91,7 +91,7 @@ export function Shell({ title, children, sw }: { title: string; children: ReactN
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{running.length ? t("{n} running", { n: running.length }) : t("Nothing running")}</span>
-              {version && <span className="block truncate text-fg-3" title={t("App version")}>Ansible Mario <span className="font-mono">v{version}</span></span>}
+              {version && <span className="block truncate text-fg-3" title={t("App version")}>Tillerdeck <span className="font-mono">v{version}</span></span>}
             </span>
             <button className="ib !size-7" title={t("Preferences")} onClick={() => openSettings(go, "preferences")}><Settings size={15} /></button>
           </div>
@@ -136,7 +136,7 @@ export function Shell({ title, children, sw }: { title: string; children: ReactN
   );
 }
 
-/** O projecto abriu sem ansible-mario.json: diz de onde veio e oferece gravar. */
+/** O projecto abriu sem tillerdeck.json: diz de onde veio e oferece gravar. */
 function AutoBar() {
   const ws = useWs();
   const a = ws.state.auto!;
@@ -148,19 +148,41 @@ function AutoBar() {
     try {
       await api.manifestSave(ws.project.root, ws.manifest);
       await ws.refresh();
-      ws.toast(t("ansible-mario.json saved"));
+      ws.toast(t("tillerdeck.json saved"));
     } catch (e) {
       ws.toast(errorText(e), true);
     } finally {
       setBusy(false);
     }
   }
+  async function adopt() {
+    setBusy(true);
+    try {
+      await api.manifestAdoptLegacy(ws.project.root);
+      await ws.refresh();
+      ws.toast(t("Renamed to tillerdeck.json"));
+    } catch (e) {
+      ws.toast(errorText(e), true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  // o ficheiro do tempo do Ansible Mario: propõe-se renomeá-lo em vez de detectar de novo
+  if (ws.state.legacyFile) {
+    return (
+      <div className="flex shrink-0 items-center gap-3 border-b hair px-5 py-2 text-[12.5px]" style={{ background: "color-mix(in srgb, var(--w-accent) 9%, transparent)" }}>
+        <Sparkles size={14} className="shrink-0 text-accent" />
+        <span className="min-w-0 flex-1 truncate text-fg-2">{t("This project has ansible-mario.json, the old name of the settings file. Rename it to use your settings.")}</span>
+        <button className="b b-sm b-pri" disabled={busy} onClick={adopt}>{t("Rename to tillerdeck.json")}</button>
+      </div>
+    );
+  }
   return (
     <div className="flex shrink-0 items-center gap-3 border-b hair px-5 py-2 text-[12.5px]" style={{ background: "color-mix(in srgb, var(--w-accent) 9%, transparent)" }}>
       <Sparkles size={14} className="shrink-0 text-accent" />
       <span className="min-w-0 flex-1 truncate text-fg-2">{t("Detected from {from}. Nothing is saved in the project yet.", { from })}</span>
       <button className="b b-sm" onClick={() => setReview(true)}>{t("Review")}</button>
-      <button className="b b-sm b-pri" disabled={busy} onClick={save}>{t("Save ansible-mario.json")}</button>
+      <button className="b b-sm b-pri" disabled={busy} onClick={save}>{t("Save tillerdeck.json")}</button>
       {review && <Wizard root={ws.project.root} name={ws.project.name} toast={ws.toast} autoTemplate={a.template} onClose={() => setReview(false)} onApplied={() => { setReview(false); ws.refresh(); }} />}
     </div>
   );

@@ -23,7 +23,7 @@ import { t } from "./i18n";
 
 const isMac = navigator.userAgent.includes("Mac");
 const mod = (e: KeyboardEvent) => (isMac ? e.metaKey : e.ctrlKey);
-const welcomeKey = (root: string) => `ansible-mario.welcomed.${root}`;
+const welcomeKey = (root: string) => `tillerdeck.welcomed.${root}`;
 
 /** As corridas da app, partilhadas por todos os projectos abertos. */
 export interface RunStore {
@@ -52,7 +52,7 @@ export function ProjectView({ initial, active, store, prefs, setPrefs, say, sw }
   const proj = useProjectAt(initial);
   const root = initial.root;
   const [page, setPage] = useState<Page>("servicos");
-  const [envId, setEnvId] = useState<string | null>(() => localStorage.getItem(`ansible-mario.env.${root}`));
+  const [envId, setEnvId] = useState<string | null>(() => localStorage.getItem(`tillerdeck.env.${root}`));
   const [selected, setSelected] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export function ProjectView({ initial, active, store, prefs, setPrefs, say, sw }
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState(Date.now());
   const [skipWizard, setSkipWizard] = useState(false);
-  // Boas-vindas a um projecto sem ansible-mario.json: uma vez por projecto.
+  // Boas-vindas a um projecto sem tillerdeck.json: uma vez por projecto.
   const [welcomed, setWelcomed] = useState(() => {
     try {
       return !!localStorage.getItem(welcomeKey(root));
@@ -171,7 +171,7 @@ export function ProjectView({ initial, active, store, prefs, setPrefs, say, sw }
       env,
       setEnv: (id: string) => {
         setEnvId(id);
-        localStorage.setItem(`ansible-mario.env.${root}`, id);
+        localStorage.setItem(`tillerdeck.env.${root}`, id);
       },
       page,
       go: setPage,
@@ -275,7 +275,7 @@ export function ProjectView({ initial, active, store, prefs, setPrefs, say, sw }
         </Shell>
         {active && confirm && <Confirm spec={confirm} onClose={() => setConfirm(null)} />}
         {active && palette && <Palette onClose={() => setPalette(false)} />}
-        {active && ws.state.auto && !welcomed && (
+        {active && ws.state.auto && !ws.state.legacyFile && !welcomed && (
           <Wizard
             first
             autoTemplate={ws.state.auto.template}

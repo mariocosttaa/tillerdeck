@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn maintenance_flags_only() {
-        let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
+        let Ok(roots) = std::env::var("TILLERDECK_FIXTURES") else { return };
         let root = std::path::Path::new(roots.split(':').next().unwrap());
         for inv in ["inventories/staging.ini", "inventories/production.ini"] {
             let m = super::maintenance(root, inv).unwrap();

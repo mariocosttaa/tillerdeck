@@ -82,7 +82,7 @@ pub fn set(root: &Path, rel: &str, key: &str, value: &str) -> Result<String, Str
     let before = read(root, rel)?;
     let (out, old) = replace_in_text(&text, key, value).map_err(|e| format!("{rel}: {e}"))?;
 
-    let tmp = path.with_file_name(format!(".{}.ansible-mario.tmp", path.file_name().unwrap().to_string_lossy()));
+    let tmp = path.with_file_name(format!(".{}.tillerdeck.tmp", path.file_name().unwrap().to_string_lossy()));
     fs::write(&tmp, &out).map_err(|e| e.to_string())?;
     fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
 

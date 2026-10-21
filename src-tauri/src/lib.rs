@@ -123,9 +123,11 @@ struct ProjectState {
     values: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
     git: ops::GitInfo,
     callbacks: Vec<String>,
-    /// Sem ansible-mario.json: o manifesto veio do template mais compatível e
+    /// Sem tillerdeck.json: o manifesto veio do template mais compatível e
     /// ainda não está gravado.
     auto: Option<AutoInfo>,
+    /// Há um `ansible-mario.json` (o nome antigo) e nenhum `tillerdeck.json`.
+    legacy_file: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -178,7 +180,8 @@ async fn project_state(root: String, lang: Option<String>) -> Result<ProjectStat
             .and_then(|c| c.get("value").and_then(|v| v.as_array()).cloned())
             .map(|a| a.into_iter().filter_map(|x| x.as_str().map(String::from)).collect())
             .unwrap_or_default();
-        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, values, git: ops::git_info(&r), callbacks, auto })
+        let legacy_file = !r.join(manifest::FILE).exists() && r.join(manifest::LEGACY_FILE).is_file();
+        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, values, git: ops::git_info(&r), callbacks, auto, legacy_file })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -198,6 +201,11 @@ async fn template_report(root: String, template: String, lang: Option<String>) -
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn manifest_adopt_legacy(root: String) -> Result<(), String> {
+    manifest::adopt_legacy(&root_path(&root))
 }
 
 #[tauri::command]
@@ -313,8 +321,8 @@ fn run_log(app: AppHandle, id: String) -> Result<String, String> {
     runner::read_log(&app, &id)
 }
 
-/// O projecto passado na linha de comandos: `ansible-mario ~/infra` ou
-/// `open -a "Ansible Mario" --args ~/infra`.
+/// O projecto passado na linha de comandos: `tillerdeck ~/infra` ou
+/// `open -a "Tillerdeck" --args ~/infra`.
 #[tauri::command]
 fn initial_project() -> Option<String> {
     std::env::args()
@@ -413,9 +421,29 @@ fn should_block(app: &AppHandle) -> bool {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// A app chamava-se Ansible Mario (`pt.solo.ansiblemario`): na primeira vez como
+/// Tillerdeck, o histórico e os logs das corridas vêm da pasta antiga (copiados).
+fn adopt_old_data(app: &AppHandle) {
+    for dir in [app.path().app_data_dir(), app.path().app_cache_dir()].into_iter().flatten() {
+        let old = dir.with_file_name("pt.solo.ansiblemario");
+        if dir.exists() || !old.is_dir() {
+            continue;
+        }
+        for e in walkdir::WalkDir::new(&old).into_iter().flatten() {
+            let Ok(rel) = e.path().strip_prefix(&old) else { continue };
+            let to = dir.join(rel);
+            let _ = if e.file_type().is_dir() { fs::create_dir_all(&to) } else { fs::copy(e.path(), &to).map(|_| ()) };
+        }
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            adopt_old_data(app.handle());
+            Ok(())
+        })
         .manage(Runs::default())
         .manage(Arc::new(Guard::default()))
         .on_window_event(|window, event| {
@@ -447,6 +475,7 @@ pub fn run() {
             force_quit,
             project_state,
             template_report,
+            manifest_adopt_legacy,
             manifest_save,
             release_set,
             release_history,

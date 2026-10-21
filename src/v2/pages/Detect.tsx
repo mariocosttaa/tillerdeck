@@ -123,7 +123,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, autoTemplate, cu
     const final = again && !replace ? merge(current!, picked) : picked;
     try {
       await api.manifestSave(root, final);
-      toast(again && !replace ? t("Added to ansible-mario.json") : t("ansible-mario.json saved"));
+      toast(again && !replace ? t("Added to tillerdeck.json") : t("tillerdeck.json saved"));
       if (keepGoing) onApplied();
     } catch (e) {
       toast(errorText(e), true);
@@ -173,7 +173,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, autoTemplate, cu
             {welcome
               ? t("This is what the app found in your project. Untick what you don't want and rename anything — nothing is written until you save, and everything can be changed later in Settings.")
               : again
-                ? replace ? t("Everything the app finds, replacing the current ansible-mario.json.") : t("What the app finds that isn't in ansible-mario.json yet. Your current settings stay as they are.")
+                ? replace ? t("Everything the app finds, replacing the current tillerdeck.json.") : t("What the app finds that isn't in tillerdeck.json yet. Your current settings stay as they are.")
                 : <>{t("This is what the app found in your project.")} {t("Without settings, Files mode is still available.")}</>}
           </p>
           {report && (
@@ -187,7 +187,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, autoTemplate, cu
         <div className="scroll mt-3 min-h-[160px] flex-1 overflow-auto border-y hair px-5 pb-4">
           {report === undefined && <p className="p-6 text-center text-fg-3">{t("Reading the project…")}</p>}
           {report === null && <p className="p-6 text-center text-danger">{t("Could not read the project.")}</p>}
-          {nothingNew && <p className="p-6 text-center text-fg-3">{t("Nothing new — ansible-mario.json already has everything the app found.")}</p>}
+          {nothingNew && <p className="p-6 text-center text-fg-3">{t("Nothing new — tillerdeck.json already has everything the app found.")}</p>}
           {shown && (
             <>
               {section("servers", t("Servers"), shown.environments.length, shown.environments.map((e) => row(`env:${e.id}`, e.label, evidence(`env:${e.id}`, e.inventory), <span className="mt-1.5 shrink-0"><EnvDot env={e} size={8} /></span>, true)))}
@@ -212,12 +212,12 @@ export function Wizard({ root, name, toast, onClose, onApplied, autoTemplate, cu
             ) : again ? (
               <>
                 <button className="b" onClick={onClose}>{t("Cancel")}</button>
-                <button className="b b-pri" disabled={!shown || !!nothingNew} onClick={() => save(true)}>{replace ? <Save size={15} /> : <Plus size={15} />}{replace ? t("Replace ansible-mario.json") : t("Add to ansible-mario.json")}</button>
+                <button className="b b-pri" disabled={!shown || !!nothingNew} onClick={() => save(true)}>{replace ? <Save size={15} /> : <Plus size={15} />}{replace ? t("Replace tillerdeck.json") : t("Add to tillerdeck.json")}</button>
               </>
             ) : (
               <>
                 <button className="b" onClick={onClose}>{t("Not now")}</button>
-                <button className="b b-pri" disabled={!shown || !report?.compatible} onClick={() => save(true)}><Plus size={15} />{t("Create ansible-mario.json")}</button>
+                <button className="b b-pri" disabled={!shown || !report?.compatible} onClick={() => save(true)}><Plus size={15} />{t("Create tillerdeck.json")}</button>
               </>
             )}
           </div>
@@ -237,7 +237,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, autoTemplate, cu
               )}
             </div>
           )}
-          {welcome && <p className="mt-3 text-[12px] text-fg-3">{t("Saving puts ansible-mario.json in the project folder (not committed), so the team sees the same.")}</p>}
+          {welcome && <p className="mt-3 text-[12px] text-fg-3">{t("Saving puts tillerdeck.json in the project folder (not committed), so the team sees the same.")}</p>}
           {again && replace && <p className="mt-3 flex items-center gap-1.5 text-[12px] text-warn"><Trash2 size={12} />{t("Your manual changes to the current file are lost.")}</p>}
         </div>
       </div>

@@ -6,13 +6,14 @@ import { api, errorText, type Project } from "./api";
 import { useRuns } from "./v2/store";
 import { Modal, Toast } from "./v2/ui";
 import { ProjectView } from "./v2/ProjectView";
+import { Wordmark } from "./v2/Logo";
 import type { Switcher } from "./v2/ProjectMenu";
 import { applyTheme, loadPrefs, savePrefs, type Prefs } from "./v2/prefs";
 import { setLang, t } from "./v2/i18n";
 
-const RECENTS = "ansible-mario.recents";
+const RECENTS = "tillerdeck.recents";
 /** Os projectos abertos e o da frente, para os voltar a abrir no arranque. */
-const OPEN = "ansible-mario.open";
+const OPEN = "tillerdeck.open";
 const read = <T,>(key: string, fallback: T): T => {
   try {
     return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback;
@@ -179,9 +180,8 @@ export default function App() {
     return (
       <div className="flex h-full items-center justify-center p-8" data-tauri-drag-region>
         <div className="panel am-in w-[560px] p-8" style={{ background: "var(--w-panel)" }}>
-          <span className="grid size-12 place-items-center rounded-2xl text-[20px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c6cff,#4a8cff)" }}>A</span>
-          <h1 className="mt-5 text-[24px] font-semibold tracking-tight">Ansible Mario</h1>
-          <p className="mt-1 text-fg-2">{t("Your playbooks as an app: services, promotion, backups and machines, with the Ansible you already have.")}</p>
+          <h1 className="text-[28px]"><Wordmark size={30} /></h1>
+          <p className="mt-3 text-fg-2">{t("Steer your infra by hand: services, promotion, backups and machines, with the Ansible you already have.")}</p>
           <button className="b b-pri mt-6 h-11 w-full justify-center text-[14px]" onClick={pick} disabled={loading}>
             <FolderOpen size={17} />{loading ? t("Opening…") : t("Open project")}<span className="kbd ml-2 !bg-white/15 !text-white/80">{isMac ? "⌘O" : "Ctrl O"}</span>
           </button>

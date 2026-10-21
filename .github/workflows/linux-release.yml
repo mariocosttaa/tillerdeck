@@ -58,8 +58,8 @@ jobs:
           set -euo pipefail
           v="${TAG#v}"
           mkdir -p out
-          cp src-tauri/target/release/bundle/appimage/*.AppImage "out/Ansible-Mario-${v}-linux-${{ matrix.arch }}.AppImage"
-          cp src-tauri/target/release/bundle/deb/*.deb "out/ansible-mario_${v}_${{ matrix.deb }}.deb"
+          cp src-tauri/target/release/bundle/appimage/*.AppImage "out/Tillerdeck-${v}-linux-${{ matrix.arch }}.AppImage"
+          cp src-tauri/target/release/bundle/deb/*.deb "out/tillerdeck_${v}_${{ matrix.deb }}.deb"
           (cd out && sha256sum * > "SHA256SUMS-linux-${{ matrix.arch }}.txt" && cat SHA256SUMS-linux-*.txt)
         env:
           TAG: ${{ inputs.tag }}

@@ -80,7 +80,7 @@ export function Preferences() {
         />
       </Card>
       <Card title={t("About")}>
-        <p className="text-[13px] text-fg-2">Ansible Mario <span className="font-mono text-fg">{version ? `v${version}` : "—"}</span></p>
+        <p className="text-[13px] text-fg-2">Tillerdeck <span className="font-mono text-fg">{version ? `v${version}` : "—"}</span></p>
         <p className="mt-1 text-[12px] text-fg-3">{t("These preferences are saved on this computer only.")}</p>
       </Card>
     </div>

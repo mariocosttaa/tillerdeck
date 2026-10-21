@@ -59,7 +59,7 @@ export function ProjectMenu({ sw, className, children }: { sw: Switcher; classNa
           {sw.open.map((o, i) => (
             <div key={o.root} className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-hover ${o.root === sw.active ? "bg-hover" : ""}`}>
               <button className="flex min-w-0 flex-1 items-center gap-2.5 text-left" onClick={pick(() => sw.switchTo(o.root))} title={o.root}>
-                <span className="grid size-6 shrink-0 place-items-center rounded-md text-[11px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c6cff,#4a8cff)" }}>
+                <span className="grid size-6 shrink-0 place-items-center rounded-md text-[11px] font-semibold text-white" style={{ background: "#6B5BF5" }}>
                   {o.name.slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1 truncate font-medium">{o.name}</span>

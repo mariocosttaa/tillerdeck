@@ -1,8 +1,8 @@
 # Notes for coding agents
 
-## Writing `ansible-mario.json` for someone's Ansible project
+## Writing `tillerdeck.json` for someone's Ansible project
 
-Follow [`skills/ansible-mario-json/SKILL.md`](skills/ansible-mario-json/SKILL.md). The short version:
+Follow [`skills/tillerdeck-json/SKILL.md`](skills/tillerdeck-json/SKILL.md). The short version:
 
 - Read the Makefile, inventories and releases.
 - Never invent a target or a file.

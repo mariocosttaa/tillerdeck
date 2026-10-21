@@ -1,24 +1,24 @@
-# `ansible-mario.json` reference
+# `tillerdeck.json` reference
 
-Ansible Mario reads one file at the root of your infra repository: `ansible-mario.json`. It says which servers you have, which products live on them, which Makefile target or playbook each button runs, and what the app may edit for you.
+Tillerdeck reads one file at the root of your infra repository: `tillerdeck.json`. It says which servers you have, which products live on them, which Makefile target or playbook each button runs, and what the app may edit for you.
 
 You rarely write it from scratch:
 
 - **No file yet?** The app detects it from the project (the Makefile, and the playbooks, roles and containers themselves) and opens with it, in memory. A review shows each item with where it came from: untick, rename, **Accept and save**.
 - **Change anything later** in **Settings**: forms for servers, products, buttons, operations, version sources and variables, plus a JSON tab. **Detect again** proposes only what's new and adds it without touching your edits.
-- **Let an agent do it:** [`skills/ansible-mario-json`](../skills/ansible-mario-json/SKILL.md).
+- **Let an agent do it:** [`skills/tillerdeck-json`](../skills/tillerdeck-json/SKILL.md).
 
 The JSON schema is [`schema/v2.json`](../schema/v2.json). Add `"$schema"` to the file to get autocomplete and validation in your editor:
 
 ```bash
-npx -y ajv-cli@5.0.0 validate --spec=draft2020 -s schema/v2.json -d ansible-mario.json
+npx -y ajv-cli@5.0.0 validate --spec=draft2020 -s schema/v2.json -d tillerdeck.json
 ```
 
 ## A complete example
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
+  "$schema": "https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/schema/v2.json",
   "version": 2,
   "name": "Shop",
   "template": "auto",

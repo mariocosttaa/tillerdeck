@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
-  "title": "ansible-mario.json",
-  "description": "Describes an Ansible project for Ansible Mario: environments, products, services and the Makefile targets or playbooks each button runs.",
+  "$id": "https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/schema/v2.json",
+  "title": "tillerdeck.json",
+  "description": "Describes an Ansible project for Tillerdeck: environments, products, services and the Makefile targets or playbooks each button runs.",
   "type": "object",
   "required": [
     "name",

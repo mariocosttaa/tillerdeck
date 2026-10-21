@@ -1,10 +1,17 @@
-# Ansible Mario
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/marca-horizontal-branco.svg">
+    <img alt="Tillerdeck" src="docs/brand/marca-horizontal.svg" width="340">
+  </picture>
+</h1>
 
-**v2.0.0**: your Ansible project as a desktop app. Deploy, promote, back up and manage machines with buttons, built on the CLI you already use.
+**Steer your infra by hand.** Tillerdeck (formerly *Ansible Mario*) is a desktop app that puts buttons on your Ansible project: deploy, promote, back up and manage machines, built on the CLI you already use.
 
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/mariocosttaa/ansible-mario/releases) [![Linux](https://img.shields.io/badge/Linux-AppImage_·_deb-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/mariocosttaa/ansible-mario/releases) [![Ansible](https://img.shields.io/badge/Ansible-tested_on_core_2.21-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://docs.ansible.com) [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![Rust](https://img.shields.io/badge/Rust-backend-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org) [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev) [![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+**v2.1.0:** several projects open at once, and settings detected from your playbooks and roles.
 
-Ansible Mario turns an Ansible repository into an operations app:
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/mariocosttaa/tillerdeck/releases) [![Linux](https://img.shields.io/badge/Linux-AppImage_·_deb-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/mariocosttaa/tillerdeck/releases) [![Ansible](https://img.shields.io/badge/Ansible-tested_on_core_2.21-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://docs.ansible.com) [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![Rust](https://img.shields.io/badge/Rust-backend-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org) [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev) [![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![License](https://img.shields.io/badge/License-MIT-6B5BF5?style=for-the-badge)](LICENSE)
+
+Tillerdeck turns an Ansible repository into an operations app:
 - **Servers and products:** pick a server at the top (Staging, Production); see the products that live on it and every service's version.
 - **Actions:** buttons to deploy, migrate, seed, close a service for maintenance and reopen it.
 - **Builds:** the latest images in your registry (or commits of your app repo), with dates, and where each one is installed. Deploy any of them.
@@ -49,8 +56,8 @@ Nothing is reimplemented. Every button runs your own Makefile target or playbook
 
 ```mermaid
 flowchart LR
-  R[Your infra repo<br/>Makefile · playbooks · roles · releases/*.yml] -->|detection| M[ansible-mario.json]
-  M --> A[Ansible Mario]
+  R[Your infra repo<br/>Makefile · playbooks · roles · releases/*.yml] -->|detection| M[tillerdeck.json]
+  M --> A[Tillerdeck]
   A -->|buttons| C["make deploy-shop-nestjs-staging<br/>ansible-playbook …"]
   C --> H[Hosts]
   A -->|promote / roll back| REL[releases/production.yml<br/>one line per service]
@@ -58,7 +65,7 @@ flowchart LR
 
 ### Detected from your project
 
-The app is driven by an **`ansible-mario.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: the app **reads the project and proposes it**, and you review it before anything is saved.
+The app is driven by an **`tillerdeck.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: the app **reads the project and proposes it**, and you review it before anything is saved.
 
 - **Makefile.** Targets named `verb-product-technology-environment` (for example `deploy-shop-nestjs-staging` or `run-migrations-shop-nestjs-production`) become products, services and actions. Targets without a product (`deploy-backup-*`, `provision-system-*`, `ping-*`) become operations.
 - **Playbooks and roles, by what's inside.** Without a Makefile, or for playbooks no target runs, the app reads each playbook and the roles it uses:
@@ -74,7 +81,7 @@ The review lists every server, service, operation and variable with the evidence
 
 The schema is in [`schema/v2.json`](schema/v2.json), so editors autocomplete and validate the file. Every field is explained, with a full example, in [`docs/configuration.md`](docs/configuration.md).
 
-**No file yet?** The app doesn't open empty. It opens straight into Services with what it detected, and shows a bar to **Review** or **Save ansible-mario.json** when you're ready. Until then nothing is written to the repository.
+**No file yet?** The app doesn't open empty. It opens straight into Services with what it detected, and shows a bar to **Review** or **Save tillerdeck.json** when you're ready. Until then nothing is written to the repository.
 
 What the file describes, and what you can change in **Settings** (or the JSON tab):
 
@@ -89,7 +96,7 @@ What the file describes, and what you can change in **Settings** (or the JSON ta
 
 ### Let an agent write it
 
-[`skills/ansible-mario-json`](skills/ansible-mario-json/SKILL.md) is a skill for coding agents (Claude Code and others). It reads your Makefile, inventories and releases and writes or fixes `ansible-mario.json` without inventing targets or files. Copy it to `.claude/skills/` in your infra repo, or to `~/.claude/skills/`, and ask: *"create the ansible-mario.json for this project"*.
+[`skills/tillerdeck-json`](skills/tillerdeck-json/SKILL.md) is a skill for coding agents (Claude Code and others). It reads your Makefile, inventories and releases and writes or fixes `tillerdeck.json` without inventing targets or files. Copy it to `.claude/skills/` in your infra repo, or to `~/.claude/skills/`, and ask: *"create the tillerdeck.json for this project"*.
 
 ## Features
 
@@ -134,27 +141,27 @@ What the file describes, and what you can change in **Settings** (or the JSON ta
 
 ### Install
 
-Download from the [latest release](https://github.com/mariocosttaa/ansible-mario/releases/latest).
+Download from the [latest release](https://github.com/mariocosttaa/tillerdeck/releases/latest).
 
 **macOS (Apple Silicon)**
 
-1. Open `Ansible-Mario-2.0.0-macos-arm64.dmg` (or the `.zip`) and drag **Ansible Mario.app** to `/Applications`.
+1. Open `Tillerdeck-2.1.0-macos-arm64.dmg` (or the `.zip`) and drag **Tillerdeck.app** to `/Applications`.
 2. The app is not signed with an Apple Developer ID yet, so allow it once:
 
    ```bash
-   xattr -dr com.apple.quarantine "/Applications/Ansible Mario.app"
+   xattr -dr com.apple.quarantine "/Applications/Tillerdeck.app"
    ```
 
 **Linux (x86_64 or arm64)**
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./ansible-mario_2.0.0_amd64.deb      # or _arm64.deb
-ansible-mario ~/infra/my-project
+sudo apt install ./tillerdeck_2.1.0_amd64.deb      # or _arm64.deb
+tillerdeck ~/infra/my-project
 
 # Any distribution
-chmod +x Ansible-Mario-2.0.0-linux-x86_64.AppImage
-./Ansible-Mario-2.0.0-linux-x86_64.AppImage ~/infra/my-project
+chmod +x Tillerdeck-2.1.0-linux-x86_64.AppImage
+./Tillerdeck-2.1.0-linux-x86_64.AppImage ~/infra/my-project
 ```
 
 The Linux build needs WebKitGTK 4.1 (Ubuntu 22.04 or newer, Debian 12, Fedora 38…). The `.deb` declares it as a dependency.
@@ -165,20 +172,20 @@ Each release has a `SHA256SUMS` file per platform.
 
 ### Try the demo
 
-[`examples/demo-infra`](examples/demo-infra) follows the convention and already has its `ansible-mario.json`. Its "machines" are **this computer over a local connection**, so you can really deploy, promote, migrate and restore without touching any server:
+[`examples/demo-infra`](examples/demo-infra) follows the convention and already has its `tillerdeck.json`. Its "machines" are **this computer over a local connection**, so you can really deploy, promote, migrate and restore without touching any server:
 
 ```bash
-git clone https://github.com/mariocosttaa/ansible-mario.git
-open -a "Ansible Mario" --args "$PWD/ansible-mario/examples/demo-infra"
+git clone https://github.com/mariocosttaa/tillerdeck.git
+open -a "Tillerdeck" --args "$PWD/tillerdeck/examples/demo-infra"
 ```
 
 ### Open your own project
 
 ```bash
 # macOS: a small launcher that opens the app on a folder
-ln -s "$PWD/ansible-mario/bin/ansible-mario" /usr/local/bin/ansible-mario
-cd ~/infra/my-project && ansible-mario
-# Linux (.deb): the app itself takes the folder — `ansible-mario ~/infra/my-project`
+ln -s "$PWD/tillerdeck/bin/tillerdeck" /usr/local/bin/tillerdeck
+cd ~/infra/my-project && tillerdeck
+# Linux (.deb): the app itself takes the folder — `tillerdeck ~/infra/my-project`
 ```
 
 ## Build from source
@@ -208,14 +215,14 @@ What the tests cover:
 To see what the detection makes of your own repositories, read-only:
 
 ```bash
-ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture real_projects_auto
+TILLERDECK_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture real_projects_auto
 ```
 
 ## Project structure
 
 | Path | What is in it |
 | --- | --- |
-| `src-tauri/src/manifest.rs` | The `ansible-mario.json` model, and validation against the Makefile. |
+| `src-tauri/src/manifest.rs` | The `tillerdeck.json` model, and validation against the Makefile. |
 | `src-tauri/src/detect.rs` | Detection: reads playbooks, roles and containers, merges with the Makefile, and keeps the evidence for the review. |
 | `src-tauri/src/template.rs` | The Makefile convention, inventories, versions and variables used by the detection. |
 | `src-tauri/src/releases.rs` | Reads and rewrites `releases/*.yml` line by line, keeping comments. |
@@ -224,9 +231,9 @@ ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture real_
 | `src-tauri/src/runner.rs` | Runs in a process group: streaming, cancelling, history, one run per environment. |
 | `src/v2/` | The app: shell, pages (Services, Builds, Promote, Backups, Machine, Runs, Settings), the deploy dialog, ⌘K, the run views, and the English/Portuguese strings. |
 | `src/legacy/` | The v1 editor, now *Files (advanced)*. |
-| `schema/v2.json` | JSON schema for `ansible-mario.json`. |
-| `skills/ansible-mario-json` | A skill that helps coding agents write `ansible-mario.json` for a project. |
-| `docs/configuration.md` | Every field of `ansible-mario.json`, with a full example. |
+| `schema/v2.json` | JSON schema for `tillerdeck.json`. |
+| `skills/tillerdeck-json` | A skill that helps coding agents write `tillerdeck.json` for a project. |
+| `docs/configuration.md` | Every field of `tillerdeck.json`, with a full example. |
 | `AGENTS.md` | Notes for coding agents working on this repository. |
 | `.github/workflows/linux-release.yml` | Builds the Linux AppImage and `.deb` for a release tag. |
 | `examples/demo-infra` | A demo project that runs on localhost. |

@@ -1,4 +1,4 @@
-//! Templates: gerar o `ansible-mario.json` a partir do que o projecto já tem.
+//! Templates: gerar o `tillerdeck.json` a partir do que o projecto já tem.
 //!
 //! O template "Convenção do Makefile" lê nomes como
 //! `deploy-shop-nestjs-staging` e `run-migrations-edu-nestjs-production`:
@@ -834,7 +834,7 @@ mod tests {
 
     #[test]
     fn real_projects() {
-        let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
+        let Ok(roots) = std::env::var("TILLERDECK_FIXTURES") else { return };
         for root in roots.split(':') {
             let root = Path::new(root);
             let r = makefile_convention(root, "pt");

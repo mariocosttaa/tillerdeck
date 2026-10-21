@@ -128,6 +128,7 @@ export const api = {
   initialProject: () => invoke<string | null>("initial_project"),
   setDirty: (root: string, dirty: boolean) => invoke<void>("set_dirty", { root, dirty }),
   dirtyRoots: () => invoke<string[]>("dirty_roots"),
+  manifestAdoptLegacy: (root: string) => invoke<void>("manifest_adopt_legacy", { root }),
   forceQuit: () => invoke<void>("force_quit"),
   // v2
   projectState: (root: string, lang?: string) => invoke<ProjectState>("project_state", { root, lang: lang ?? null }),
@@ -177,7 +178,7 @@ export function shellQuote(a: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// v2 — o ansible-mario.json
+// v2 — o tillerdeck.json
 // ---------------------------------------------------------------------------
 
 export interface Action {
@@ -312,8 +313,10 @@ export interface ProjectState {
   values: Record<string, Record<string, string>>;
   git: { branch: string | null; dirty: string[] };
   callbacks: string[];
-  /** sem ansible-mario.json: o manifesto veio do template mais compatível e ainda não está gravado */
+  /** sem tillerdeck.json: o manifesto veio do template mais compatível e ainda não está gravado */
   auto: { template: string; matched: number; total: number; sources?: string[] } | null;
+  /** há um ansible-mario.json (o nome antigo da app) e nenhum tillerdeck.json */
+  legacyFile?: boolean;
 }
 
 export interface TemplateReport {
