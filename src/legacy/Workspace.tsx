@@ -9,18 +9,29 @@ import Overview from "./components/Overview";
 import Console, { type RunView } from "./components/Console";
 import ConfirmRun, { type ConfirmRequest } from "./components/ConfirmRun";
 import { monaco } from "../monaco";
+import { t } from "../v2/i18n";
 
 type View = "overview" | "run" | "make";
 type Tab = { type: "view"; view: View } | { type: "file"; path: string };
 
 const MAX_LINES = 50_000;
+/** Escuro ou claro, conforme a preferência da app (data-theme) e o sistema. */
 function useDark() {
-  const q = window.matchMedia("(prefers-color-scheme: dark)");
-  const [dark, setDark] = useState(q.matches);
+  const read = () => {
+    const t = document.documentElement.dataset.theme ?? "auto";
+    return t === "dark" || (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  };
+  const [dark, setDark] = useState(read);
   useEffect(() => {
-    const f = (e: MediaQueryListEvent) => setDark(e.matches);
+    const q = window.matchMedia("(prefers-color-scheme: dark)");
+    const f = () => setDark(read());
     q.addEventListener("change", f);
-    return () => q.removeEventListener("change", f);
+    const mo = new MutationObserver(f);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => {
+      q.removeEventListener("change", f);
+      mo.disconnect();
+    };
   }, []);
   return dark;
 }
@@ -108,7 +119,7 @@ export default function Workspace({ initial }: { initial: Project }) {
     setTab({ type: "file", path: f.path });
     if (files.some((x) => x.path === f.path)) return;
     try {
-      setBusy(f.vault ? "a decifrar…" : null);
+      setBusy(f.vault ? t("decrypting…") : null);
       const text = f.vault ? await api.vaultView(project.root, f.path) : await api.readFile(project.root, f.path);
       setFiles((fs) => (fs.some((x) => x.path === f.path) ? fs : [...fs, { path: f.path, saved: text, content: text, vault: f.vault }]));
     } catch (e) {
@@ -143,13 +154,13 @@ export default function Workspace({ initial }: { initial: Project }) {
     setForceSave(null);
     try {
       if (f.vault) {
-        setBusy("a cifrar…");
+        setBusy(t("encrypting…"));
         await api.vaultSave(project.root, f.path, f.content);
       } else {
         await api.writeFile(project.root, f.path, f.content);
       }
       update(f.path, { saved: f.content });
-      say(f.vault ? `${f.path} cifrado e gravado` : `${f.path} gravado`);
+      say(f.vault ? t("{f} encrypted and saved", { f: f.path }) : t("{f} saved", { f: f.path }));
     } catch (e) {
       say(errorText(e), true);
     } finally {
@@ -178,7 +189,7 @@ export default function Workspace({ initial }: { initial: Project }) {
     try {
       const issues = await api.lint(project.root, f.path);
       update(f.path, { lint: issues });
-      say(issues.length ? `ansible-lint: ${issues.length} problema(s)` : "ansible-lint: sem problemas", issues.length > 0);
+      say(issues.length ? t("ansible-lint: {n} problem(s)", { n: issues.length }) : t("ansible-lint: no problems"), issues.length > 0);
     } catch (e) {
       say(errorText(e), true);
     } finally {
@@ -191,7 +202,7 @@ export default function Workspace({ initial }: { initial: Project }) {
     setBusy("syntax-check…");
     try {
       const r = await api.syntaxCheck(project.root, f.path);
-      say(r.ok ? "✓ sintaxe válida" : r.output, !r.ok);
+      say(r.ok ? t("✓ valid syntax") : r.output, !r.ok);
     } catch (e) {
       say(errorText(e), true);
     } finally {
@@ -203,7 +214,7 @@ export default function Workspace({ initial }: { initial: Project }) {
   async function startRun(spec: RunSpec) {
     if (!project) return;
     const unsaved = [...dirty];
-    if (unsaved.length) say(`Atenção: há ficheiros por gravar (${unsaved.join(", ")}) — a corrida usa o que está no disco.`, true);
+    if (unsaved.length) say(t("Careful: unsaved files ({list}) — the run uses what is on disk.", { list: unsaved.join(", ") }), true);
     try {
       const started = await api.runStart(project.root, spec);
       const done = exited.current[started.id];
@@ -221,7 +232,7 @@ export default function Workspace({ initial }: { initial: Project }) {
   async function cancelRun(id: string) {
     try {
       const sig = await api.runCancel(id);
-      say(`${sig} enviado`);
+      say(t("{sig} sent", { sig }));
     } catch (e) {
       say(errorText(e), true);
     }
@@ -247,8 +258,8 @@ export default function Workspace({ initial }: { initial: Project }) {
   const consoleRun = consoleId ? runs[consoleId] ?? null : null;
   const activeKind = active ? project.files.find((f) => f.path === active.path)?.kind : null;
   const viewTabs: [View, string][] = [
-    ["overview", "Visão geral"],
-    ["run", "Executar"],
+    ["overview", t("Overview")],
+    ["run", t("Run")],
     ["make", "Makefile"],
   ];
 
@@ -256,12 +267,12 @@ export default function Workspace({ initial }: { initial: Project }) {
     <div className="legacy app">
       <header className="topbar">
         <b className="px-2">{project.name}</b>
-        <button className="mini" onClick={refresh} title="Voltar a ler a árvore">↻</button>
+        <button className="mini" onClick={refresh} title={t("Read the tree again")}>↻</button>
         <div className="spacer" />
         {busy && <span className="busy">{busy}</span>}
         {runningIds.size > 0 && (
           <button className="running-pill" onClick={() => setConsoleId([...runningIds][0])}>
-            ● {runningIds.size} a correr
+            ● {t("{n} running", { n: runningIds.size })}
           </button>
         )}
       </header>
@@ -282,7 +293,7 @@ export default function Workspace({ initial }: { initial: Project }) {
                   {dirty.has(f.path) && " ●"}
                 </button>
                 <button className="tab-x" onClick={() => closeFile(f.path)}>
-                  {pendingClose === f.path ? "descartar?" : "×"}
+                  {pendingClose === f.path ? t("discard?") : "×"}
                 </button>
               </div>
             ))}
@@ -300,24 +311,24 @@ export default function Workspace({ initial }: { initial: Project }) {
               <div className="editor-wrap">
                 <div className="editor-bar">
                   <span className="mono small">{active.path}</span>
-                  {active.vault && <span className="badge lock">decifrado só em memória · grava cifrado</span>}
+                  {active.vault && <span className="badge lock">{t("decrypted in memory only · saves encrypted")}</span>}
                   <div className="spacer" />
                   {activeKind === "playbook" && (
                     <>
-                      <button onClick={() => syntax(active)}>Sintaxe</button>
-                      <button onClick={() => setTab({ type: "view", view: "run" })}>Executar…</button>
+                      <button onClick={() => syntax(active)}>{t("Syntax")}</button>
+                      <button onClick={() => setTab({ type: "view", view: "run" })}>{t("Run…")}</button>
                     </>
                   )}
                   {/\.ya?ml$/.test(active.path) && !active.vault && <button onClick={() => lint(active)}>Lint</button>}
                   <button className="primary" disabled={!dirty.has(active.path)} onClick={() => save(active)}>
-                    Gravar <kbd>⌘S</kbd>
+                    {t("Save")} <kbd>⌘S</kbd>
                   </button>
                 </div>
                 {forceSave?.path === active.path && (
                   <div className="save-warn">
-                    <span title={forceSave.errors.join("\n\n")}>⚠ O YAML tem erros: {forceSave.errors[0].split("\n")[0]}</span>
-                    <button onClick={() => setForceSave(null)}>Corrigir</button>
-                    <button className="danger" onClick={() => save(active, true)}>Gravar mesmo assim</button>
+                    <span title={forceSave.errors.join("\n\n")}>⚠ {t("The YAML has errors:")} {forceSave.errors[0].split("\n")[0]}</span>
+                    <button onClick={() => setForceSave(null)}>{t("Fix it")}</button>
+                    <button className="danger" onClick={() => save(active, true)}>{t("Save anyway")}</button>
                   </div>
                 )}
                 <div className="editor-host">

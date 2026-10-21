@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnsiUp } from "ansi_up";
 import type { HistoryEntry } from "../../api";
+import { t } from "../../v2/i18n";
 
 export interface RunView {
   entry: HistoryEntry;
@@ -20,11 +21,11 @@ const ansi = new AnsiUp();
 ansi.use_classes = true;
 
 export function statusOf(e: HistoryEntry, running: boolean): { text: string; cls: string } {
-  if (running) return { text: "a correr", cls: "running" };
-  if (e.cancelled) return { text: "cancelada", cls: "cancelled" };
+  if (running) return { text: t("running"), cls: "running" };
+  if (e.cancelled) return { text: t("cancelled"), cls: "cancelled" };
   if (e.exitCode === 0) return { text: "ok", cls: "ok" };
-  if (e.exitCode === null) return { text: "interrompida", cls: "cancelled" };
-  return { text: `falhou (${e.exitCode})`, cls: "failed" };
+  if (e.exitCode === null) return { text: t("interrupted"), cls: "cancelled" };
+  return { text: `${t("failed")} (${e.exitCode})`, cls: "failed" };
 }
 
 export default function Console({ run, onCancel, onClose, height, onResize }: Props) {
@@ -63,16 +64,16 @@ export default function Console({ run, onCancel, onClose, height, onResize }: Pr
       <header>
         <span className={`status ${st.cls}`}>{st.text}</span>
         <code className="console-cmd" title={run.entry.argv.join(" ")}>{run.entry.argv.join(" ")}</code>
-        <input className="find" placeholder="Filtrar linhas" value={find} onChange={(e) => setFind(e.target.value)} spellCheck={false} />
+        <input className="find" placeholder={t("Filter lines")} value={find} onChange={(e) => setFind(e.target.value)} spellCheck={false} />
         <label className="inline small">
-          <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> seguir
+          <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("follow")}
         </label>
         {run.running && (
-          <button className="danger" onClick={() => onCancel(run.entry.id)} title="1.º SIGINT · 2.º SIGTERM · 3.º SIGKILL">
-            Cancelar
+          <button className="danger" onClick={() => onCancel(run.entry.id)} title={t("1st SIGINT · 2nd SIGTERM · 3rd SIGKILL")}>
+            {t("Cancel")}
           </button>
         )}
-        <button onClick={onClose} title="Fechar a consola">✕</button>
+        <button onClick={onClose} title={t("Close the console")}>✕</button>
       </header>
       <pre
         ref={ref}

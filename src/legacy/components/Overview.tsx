@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, errorText, type ConfigSetting, type Environment, type HistoryEntry, type Project } from "../../api";
 import { statusOf } from "./Console";
+import { t as tr } from "../../v2/i18n";
 
 interface Props {
   project: Project;
@@ -44,18 +45,18 @@ export default function Overview({ project, history, runningIds, onShowRun }: Pr
     <div className="panel overview">
       <h2>{project.name}</h2>
       <p className="muted small mono">{project.root}</p>
-      {!project.hasConfig && <p className="warn">⚠ Sem ansible.cfg — o Ansible usa a configuração global.</p>}
+      {!project.hasConfig && <p className="warn">⚠ {tr("No ansible.cfg — Ansible uses the global configuration.")}</p>}
       {missing.length > 0 && (
-        <p className="warn">⚠ Não encontrei: {missing.map((t) => t.name).join(", ")}. PATH usado: <code>{env?.path}</code></p>
+        <p className="warn">⚠ {tr("Not found:")} {missing.map((x) => x.name).join(", ")}. PATH: <code>{env?.path}</code></p>
       )}
 
       <div className="stats">
         {[
-          ["playbook", "playbooks"],
-          ["inventory", "inventários"],
+          ["playbook", tr("playbooks")],
+          ["inventory", tr("inventories")],
           ["release", "releases"],
-          ["vault", "vaults"],
-          ["vars", "ficheiros de vars"],
+          ["vault", tr("vaults")],
+          ["vars", tr("vars files")],
         ].map(([k, l]) => (
           <div key={k} className="stat">
             <b>{count(k)}</b>
@@ -66,13 +67,13 @@ export default function Overview({ project, history, runningIds, onShowRun }: Pr
 
       {callbacks && fmt(callbacks.value) && (
         <p className="note">
-          Callbacks activos: <code>{fmt(callbacks.value)}</code>. Correm em todas as execuções feitas aqui, como no terminal.
+          {tr("Active callbacks:")} <code>{fmt(callbacks.value)}</code>. {tr("They run on every run from here, as in the terminal.")}
         </p>
       )}
 
-      <h3>Últimas execuções</h3>
+      <h3>{tr("Recent runs")}</h3>
       {mine.length === 0 ? (
-        <p className="muted">Ainda nada corrido a partir da app.</p>
+        <p className="muted">{tr("Nothing run from the app yet.")}</p>
       ) : (
         <table className="history">
           <tbody>
@@ -91,9 +92,9 @@ export default function Overview({ project, history, runningIds, onShowRun }: Pr
         </table>
       )}
 
-      <h3>ansible.cfg efectivo</h3>
+      <h3>{tr("Effective ansible.cfg")}</h3>
       {configErr && <pre className="err">{configErr}</pre>}
-      {!config && !configErr && <p className="muted">a ler…</p>}
+      {!config && !configErr && <p className="muted">{tr("reading…")}</p>}
       {config && (
         <table className="cfg">
           <tbody>
@@ -111,14 +112,14 @@ export default function Overview({ project, history, runningIds, onShowRun }: Pr
 
       {env && (
         <>
-          <h3>Ferramentas</h3>
+          <h3>{tr("Tools")}</h3>
           <p className="muted small">{env.ansibleVersion}</p>
           <table className="cfg">
             <tbody>
               {env.tools.map((t) => (
                 <tr key={t.name}>
                   <td className="mono">{t.name}</td>
-                  <td className={`mono ${t.path ? "" : "err"}`}>{t.path ?? "não encontrado"}</td>
+                  <td className={`mono ${t.path ? "" : "err"}`}>{t.path ?? tr("not found")}</td>
                 </tr>
               ))}
             </tbody>

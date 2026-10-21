@@ -1,3 +1,4 @@
+import { translateError } from "./v2/i18n";
 import { invoke } from "@tauri-apps/api/core";
 
 export type FileKind =
@@ -129,7 +130,10 @@ export const api = {
   forceQuit: () => invoke<void>("force_quit"),
   // v2
   projectState: (root: string) => invoke<ProjectState>("project_state", { root }),
-  templateReport: (root: string, template: string) => invoke<TemplateReport>("template_report", { root, template }),
+  templateReport: (root: string, template: string, lang: string) => invoke<TemplateReport>("template_report", { root, template, lang }),
+  varSet: (root: string, file: string, key: string, value: string) => invoke<string>("var_set", { root, file, key, value }),
+  vaultKeySet: (root: string, file: string, key: string, value: string) => invoke<void>("vault_key_set", { root, file, key, value }),
+  vaultKeyHas: (root: string, file: string, key: string) => invoke<boolean>("vault_key_has", { root, file, key }),
   manifestSave: (root: string, manifest: Manifest) => invoke<void>("manifest_save", { root, manifest }),
   releaseSet: (root: string, release: string, key: string, value: string) =>
     invoke<string>("release_set", { root, release, key, value }),
@@ -144,7 +148,7 @@ export const api = {
 };
 
 export function errorText(e: unknown): string {
-  return typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e);
+  return translateError(typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e));
 }
 
 /** O nome de um ambiente a partir de um caminho: `inventories/staging.ini` → `staging`. */
@@ -185,11 +189,30 @@ export interface Service {
   actions: Record<string, Action>;
 }
 
+export interface Placement {
+  token: string;
+  inventory: string;
+  release?: string;
+}
+
 export interface Product {
   id: string;
   label: string;
   description: string;
+  /** servidores onde existe; vazio = todos */
+  environments?: string[];
+  /** servidor → onde vive lá (inventário, release, alvo) */
+  placements?: Record<string, Placement>;
   services: Service[];
+}
+
+export interface Variable {
+  id: string;
+  label: string;
+  group: string;
+  kind: "bool" | "text" | "secret" | string;
+  key: string;
+  files: Record<string, string>;
 }
 
 export interface Operation {
@@ -220,6 +243,7 @@ export interface Manifest {
   registry?: { url: string };
   products: Product[];
   operations: Operation[];
+  variables?: Variable[];
 }
 
 export interface ProjectState {
@@ -227,7 +251,10 @@ export interface ProjectState {
   manifestError: string | null;
   problems: { path: string; message: string }[];
   targets: string[];
+  /** ficheiro de release → chave → valor */
   releases: Record<string, Record<string, string>>;
+  /** ficheiro → chave → valor (variáveis que não são segredos) */
+  values: Record<string, Record<string, string>>;
   git: { branch: string | null; dirty: string[] };
   callbacks: string[];
 }

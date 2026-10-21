@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../../v2/i18n";
 
 export interface ConfirmRequest {
   title: string;
@@ -40,7 +41,7 @@ export default function ConfirmRun({ req, onClose }: { req: ConfirmRequest; onCl
         {req.details && req.details.length > 0 && <pre className="details">{req.details.join("\n")}</pre>}
         {req.word && (
           <label className="typed">
-            <span>Escreve <code>{req.word}</code> para continuar</span>
+            <span>{t("Type")} <code>{req.word}</code> {t("to continue")}</span>
             <input
               ref={inputRef}
               value={typed}
@@ -53,9 +54,9 @@ export default function ConfirmRun({ req, onClose }: { req: ConfirmRequest; onCl
           </label>
         )}
         <div className="modal-actions">
-          <button onClick={onClose}>Cancelar</button>
+          <button onClick={onClose}>{t("Cancel")}</button>
           <button ref={okRef} className={req.word ? "danger" : "primary"} disabled={!ok} onClick={go}>
-            Executar
+            {t("Run")}
           </button>
         </div>
       </div>

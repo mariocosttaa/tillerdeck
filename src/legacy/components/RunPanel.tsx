@@ -11,6 +11,7 @@ import {
   type RunSpec,
 } from "../../api";
 import type { ConfirmRequest } from "./ConfirmRun";
+import { t } from "../../v2/i18n";
 
 interface Props {
   project: Project;
@@ -99,9 +100,9 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
 
   const warnings: string[] = [];
   if (mismatched.length)
-    warnings.push(`O inventário é de "${invEnv}" mas ${mismatched.join(", ")} é de outro ambiente.`);
-  if (prod) warnings.push("Isto aponta para PRODUÇÃO.");
-  if (form.check) warnings.push("--check: simula, mas liga-se às máquinas e corre os callbacks na mesma.");
+    warnings.push(t("The inventory is for \"{env}\" but {list} is for another environment.", { env: invEnv ?? "", list: mismatched.join(", ") }));
+  if (prod) warnings.push(t("This points at PRODUCTION."));
+  if (form.check) warnings.push(t("--check: simulates, but still connects to the machines and runs the callbacks."));
 
   async function syntaxCheck() {
     setChecking(true);
@@ -119,7 +120,7 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
     // A palavra é o nome do inventário — a mesma que se lê no comando.
     const word = prod || mismatched.length ? stem(form.inventory) : undefined;
     requestConfirm({
-      title: form.check ? "Simular playbook" : "Executar playbook",
+      title: form.check ? t("Simulate playbook") : t("Run playbook"),
       command: argv,
       word,
       warnings,
@@ -132,25 +133,25 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
 
   return (
     <div className="panel run-panel">
-      <h2>Executar playbook</h2>
+      <h2>{t("Run playbook")}</h2>
       <div className="grid">
         <label>
           Playbook
           <select value={form.playbook} onChange={(e) => set("playbook", e.target.value)}>
-            <option value="">— escolhe —</option>
+            <option value="">{t("— choose —")}</option>
             {playbooks.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
         </label>
         <label>
-          Inventário
+          {t("Inventory")}
           <select
             value={form.inventory}
             onChange={(e) => set("inventory", e.target.value)}
             className={!form.inventory ? "needs" : looksLikeProduction(form.inventory) ? "prod" : ""}
           >
-            <option value="">— escolhe o ambiente —</option>
+            <option value="">{t("— choose the environment —")}</option>
             {inventories.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
@@ -159,7 +160,7 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
 
         {varFiles.length > 0 && (
           <div className="full">
-            <span className="lbl">Variáveis extra (-e @ficheiro)</span>
+            <span className="lbl">{t("Extra variables (-e @file)")}</span>
             <div className="chips">
               {varFiles.map((v) => {
                 const on = form.extraVarFiles.includes(v);
@@ -181,7 +182,7 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
 
         <label>
           --limit
-          <input list="hosts-list" value={form.limit} onChange={(e) => set("limit", e.target.value)} placeholder="todos os hosts do play" spellCheck={false} />
+          <input list="hosts-list" value={form.limit} onChange={(e) => set("limit", e.target.value)} placeholder={t("all hosts in the play")} spellCheck={false} />
           <datalist id="hosts-list">
             {[...groupNames, ...hosts].map((h) => (
               <option key={h} value={h} />
@@ -197,26 +198,26 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
           <input value={form.skipTags} onChange={(e) => set("skipTags", e.target.value)} spellCheck={false} />
         </label>
         <label>
-          Verbosidade
+          {t("Verbosity")}
           <select value={form.verbosity} onChange={(e) => set("verbosity", Number(e.target.value))}>
             {[0, 1, 2, 3, 4].map((v) => (
-              <option key={v} value={v}>{v ? "-" + "v".repeat(v) : "normal"}</option>
+              <option key={v} value={v}>{v ? "-" + "v".repeat(v) : t("normal")}</option>
             ))}
           </select>
         </label>
         <div className="checks full">
-          <label className="inline"><input type="checkbox" checked={form.check} onChange={(e) => set("check", e.target.checked)} /> --check (simular)</label>
+          <label className="inline"><input type="checkbox" checked={form.check} onChange={(e) => set("check", e.target.checked)} /> --check ({t("simulate")})</label>
           <label className="inline"><input type="checkbox" checked={form.diff} onChange={(e) => set("diff", e.target.checked)} /> --diff</label>
         </div>
         <label className="full">
-          Argumentos extra
+          {t("Extra arguments")}
           <input value={form.extraArgs} onChange={(e) => set("extraArgs", e.target.value)} placeholder='-e app_tag=1.4.2 --start-at-task "…"' spellCheck={false} />
         </label>
       </div>
 
       {hosts.length > 0 && (
         <p className="muted small">
-          {hosts.length} host{hosts.length > 1 ? "s" : ""} no inventário: {hosts.join(", ")}
+          {t("{n} host(s) in the inventory:", { n: hosts.length })} {hosts.join(", ")}
         </p>
       )}
       {warnings.map((w) => (
@@ -227,13 +228,13 @@ export default function RunPanel({ project, suggestedPlaybook, onRun, requestCon
 
       <div className="actions">
         <button disabled={!form.playbook || checking} onClick={syntaxCheck}>
-          {checking ? "A verificar…" : "Verificar sintaxe"}
+          {checking ? t("Checking…") : t("Check syntax")}
         </button>
         <button className={prod ? "danger" : "primary"} disabled={!ready} onClick={run}>
-          {form.check ? "Simular…" : "Executar…"}
+          {form.check ? t("Simulate…") : t("Run…")}
         </button>
       </div>
-      {check && <pre className={`check ${check.ok ? "ok" : "err"}`}>{check.ok ? "✓ sintaxe válida\n" : "✗ "}{check.output}</pre>}
+      {check && <pre className={`check ${check.ok ? "ok" : "err"}`}>{check.ok ? t("✓ valid syntax") + "\n" : "✗ "}{check.output}</pre>}
     </div>
   );
 }

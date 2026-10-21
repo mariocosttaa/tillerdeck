@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api, errorText, type FileEntry, type InventoryGroup, type Project } from "../../api";
+import { t } from "../../v2/i18n";
 
 type Section = "projeto" | "ficheiros";
 
@@ -12,7 +13,7 @@ interface Props {
 
 const KIND_LABEL: Record<string, string> = {
   playbook: "Playbooks",
-  inventory: "Inventários",
+  inventory: "Inventories",
   release: "Releases",
   vault: "Vault",
 };
@@ -25,15 +26,15 @@ export default function Sidebar({ project, activePath, dirty, onOpen }: Props) {
     <aside className="sidebar">
       <div className="seg">
         <button className={section === "projeto" ? "on" : ""} onClick={() => setSection("projeto")}>
-          Projecto
+          {t("Project")}
         </button>
         <button className={section === "ficheiros" ? "on" : ""} onClick={() => setSection("ficheiros")}>
-          Ficheiros
+          {t("Files")}
         </button>
       </div>
       <input
         className="filter"
-        placeholder="Filtrar…"
+        placeholder={t("Filter…")}
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         spellCheck={false}
@@ -44,7 +45,7 @@ export default function Sidebar({ project, activePath, dirty, onOpen }: Props) {
         ) : (
           <Tree project={project} filter={filter} activePath={activePath} dirty={dirty} onOpen={onOpen} />
         )}
-        {project.truncated && <p className="muted small pad">A árvore foi cortada aos 5000 ficheiros.</p>}
+        {project.truncated && <p className="muted small pad">{t("The tree was cut at 5000 files.")}</p>}
       </div>
     </aside>
   );
@@ -80,8 +81,8 @@ function FileRow({
     >
       <span className={`dot k-${f.kind}`} />
       <span className="row-label">{label}</span>
-      {f.vault && <span className="badge lock" title="Cifrado com ansible-vault">vault</span>}
-      {dirty && <span className="dirty-dot" title="Alterações por gravar" />}
+      {f.vault && <span className="badge lock" title={t("Encrypted with ansible-vault")}>vault</span>}
+      {dirty && <span className="dirty-dot" title={t("Unsaved changes")} />}
     </button>
   );
 }
@@ -103,7 +104,7 @@ function Grouped({ project, filter, activePath, dirty, onOpen }: Props & { filte
   return (
     <>
       {cfg.length > 0 && (
-        <Group title="Configuração" count={cfg.length}>
+        <Group title={t("Configuration")} count={cfg.length}>
           {cfg.map((f) => (
             <FileRow key={f.path} f={f} label={f.path} active={f.path === activePath} dirty={dirty.has(f.path)} onOpen={onOpen} />
           ))}
@@ -113,7 +114,7 @@ function Grouped({ project, filter, activePath, dirty, onOpen }: Props & { filte
         const list = files.filter((f) => f.kind === kind);
         if (!list.length) return null;
         return (
-          <Group key={kind} title={KIND_LABEL[kind]} count={list.length}>
+          <Group key={kind} title={t(KIND_LABEL[kind])} count={list.length}>
             {list.map((f) =>
               kind === "inventory" ? (
                 <InventoryRow key={f.path} root={project.root} f={f} active={f.path === activePath} dirty={dirty.has(f.path)} onOpen={onOpen} />
@@ -125,7 +126,7 @@ function Grouped({ project, filter, activePath, dirty, onOpen }: Props & { filte
         );
       })}
       {vars.length > 0 && (
-        <Group title="Variáveis" count={vars.length} closed>
+        <Group title={t("Variables")} count={vars.length} closed>
           {vars.map((f) => (
             <FileRow key={f.path} f={f} label={short(f.path)} active={f.path === activePath} dirty={dirty.has(f.path)} onOpen={onOpen} />
           ))}
@@ -182,14 +183,14 @@ function InventoryRow({ root, f, active, dirty, onOpen }: { root: string; f: Fil
     <div>
       <div className="row-with-action">
         <FileRow f={f} label={short(f.path)} active={active} dirty={dirty} onOpen={onOpen} />
-        <button className="mini" onClick={toggle} title="Ver grupos e hosts (ansible-inventory)">
+        <button className="mini" onClick={toggle} title={t("See groups and hosts (ansible-inventory)")}>
           {open ? "▾" : "▸"} hosts
         </button>
       </div>
       {open && (
         <div className="inv">
           {err && <pre className="err small">{err}</pre>}
-          {!groups && !err && <p className="muted small">a ler o inventário…</p>}
+          {!groups && !err && <p className="muted small">{t("reading the inventory…")}</p>}
           {groups
             ?.filter((g) => g.hosts.length || g.children.length)
             .map((g) => (

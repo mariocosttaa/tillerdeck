@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, looksLikeProduction, shellQuote, type MakeTarget, type Project, type RunSpec } from "../../api";
 import type { ConfirmRequest } from "./ConfirmRun";
+import { t as tr } from "../../v2/i18n";
 
 interface Props {
   project: Project;
@@ -46,7 +47,7 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
     const map = new Map<string, MakeTarget[]>();
     for (const t of targets) {
       if (q && !t.name.toLowerCase().includes(q) && !t.description.toLowerCase().includes(q)) continue;
-      const s = t.section || "Alvos";
+      const s = t.section || tr("Targets");
       if (!map.has(s)) map.set(s, []);
       map.get(s)!.push(t);
     }
@@ -57,7 +58,7 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
     return (
       <div className="panel">
         <h2>Makefile</h2>
-        <p className="muted">Este projecto não tem um Makefile com alvos.</p>
+        <p className="muted">{tr("This project has no Makefile with targets.")}</p>
       </div>
     );
   }
@@ -74,12 +75,12 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
       // A trava do Makefile é um `read` num terminal que aqui não existe.
       // A app pede a mesma palavra e passa-lhe CONFIRM=yes.
       varsToPass.push(["CONFIRM", "yes"]);
-      warnings.push("O Makefile pede confirmação no terminal; a app confirma aqui e passa CONFIRM=yes.");
+      warnings.push(tr("The Makefile asks for confirmation in the terminal; the app confirms here and passes CONFIRM=yes."));
     }
-    if (prod) warnings.push("Isto aponta para PRODUÇÃO.");
+    if (prod) warnings.push(tr("This points at PRODUCTION."));
     // Apagar e repor não se desfazem: pedem a palavra mesmo fora da produção.
     const destructive = /apaga|reset|restore|restauro|destroy|delete|drop|wipe|purge/i.test(`${t.name} ${t.description}`);
-    if (destructive) warnings.push("Este alvo apaga ou repõe dados.");
+    if (destructive) warnings.push(tr("This target deletes or restores data."));
     const cmd = ["make", t.name, ...varsToPass.map(([k, v]) => `${k}=${v}`)].map(shellQuote).join(" ");
     requestConfirm({
       title: `make ${t.name}`,
@@ -94,7 +95,7 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
   return (
     <div className="panel make-panel">
       <div className="make-list">
-        <input className="filter" placeholder={`Filtrar ${targets.length} alvos…`} value={filter} onChange={(e) => setFilter(e.target.value)} spellCheck={false} />
+        <input className="filter" placeholder={tr("Filter {n} targets…", { n: targets.length })} value={filter} onChange={(e) => setFilter(e.target.value)} spellCheck={false} />
         <div className="side-scroll">
           {sections.map(([s, list]) => (
             <div key={s} className="group">
@@ -111,12 +112,12 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
       </div>
       <div className="make-detail">
         {!selected ? (
-          <p className="muted pad">Escolhe um alvo para ver o que ele faz antes de o correr.</p>
+          <p className="muted pad">{tr("Pick a target to see what it does before running it.")}</p>
         ) : (
           <>
             <h2>make {selected.name}</h2>
             {selected.description && <p>{selected.description}</p>}
-            <span className="lbl">Receita</span>
+            <span className="lbl">{tr("Recipe")}</span>
             <pre className="details">{selected.recipe.join("\n") || "(sem receita)"}</pre>
             {usedVars.length > 0 && (
               <div className="grid">
@@ -125,7 +126,7 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
                     {v.name}
                     <input
                       value={values[v.name] ?? ""}
-                      placeholder={v.value || "(vazio)"}
+                      placeholder={v.value || tr("(empty)")}
                       onChange={(e) => setValues({ ...values, [v.name]: e.target.value })}
                       spellCheck={false}
                     />
@@ -135,7 +136,7 @@ export default function MakePanel({ project, onRun, requestConfirm }: Props) {
             )}
             <div className="actions">
               <button className={looksLikeProduction(selected.name) ? "danger" : "primary"} onClick={() => run(selected)}>
-                Executar…
+                {tr("Run…")}
               </button>
             </div>
           </>
