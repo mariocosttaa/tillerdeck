@@ -2,7 +2,7 @@
 
 **v2.0.0**: your Ansible project as a desktop app. Deploy, promote, back up and manage machines with buttons, built on the CLI you already use.
 
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/mariocosttaa/ansible-mario/releases) [![Ansible](https://img.shields.io/badge/Ansible-tested_on_core_2.21-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://docs.ansible.com) [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![Rust](https://img.shields.io/badge/Rust-backend-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org) [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev) [![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/mariocosttaa/ansible-mario/releases) [![Linux](https://img.shields.io/badge/Linux-AppImage_·_deb-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/mariocosttaa/ansible-mario/releases) [![Ansible](https://img.shields.io/badge/Ansible-tested_on_core_2.21-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://docs.ansible.com) [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app) [![Rust](https://img.shields.io/badge/Rust-backend-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org) [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev) [![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 Ansible Mario turns an Ansible repository into an operations app:
 - **Servers and products:** pick a server at the top (Staging, Production); see the products that live on it and every service's version.
@@ -67,7 +67,9 @@ The app is driven by an **`ansible-mario.json`** at the root of your infra repo.
 - **Playbooks only.** One button per playbook, run with the environment's inventory and release.
 - **Blank.** Configure it in **Settings**, where a form and the JSON stay in sync.
 
-The schema is in [`schema/v2.json`](schema/v2.json), so editors autocomplete and validate the file.
+The schema is in [`schema/v2.json`](schema/v2.json), so editors autocomplete and validate the file. Every field is explained, with a full example, in [`docs/configuration.md`](docs/configuration.md).
+
+**No file yet?** The app doesn't open empty. It reads the project with the most compatible template, opens straight into Services, and shows a bar to **Save ansible-mario.json** when you're ready. Until then nothing is written to the repository.
 
 What the file describes, and what you can change in **Settings** (or the JSON tab):
 
@@ -126,14 +128,34 @@ What the file describes, and what you can change in **Settings** (or the JSON ta
 
 ### Install
 
-1. Download `Ansible-Mario-2.0.0-macos-arm64.dmg` (or the `.zip`) from the [latest release](https://github.com/mariocosttaa/ansible-mario/releases/latest), and drag **Ansible Mario.app** to `/Applications`.
+Download from the [latest release](https://github.com/mariocosttaa/ansible-mario/releases/latest).
+
+**macOS (Apple Silicon)**
+
+1. Open `Ansible-Mario-2.0.0-macos-arm64.dmg` (or the `.zip`) and drag **Ansible Mario.app** to `/Applications`.
 2. The app is not signed with an Apple Developer ID yet, so allow it once:
 
    ```bash
    xattr -dr com.apple.quarantine "/Applications/Ansible Mario.app"
    ```
 
-**Requirements:** a Mac with Apple Silicon, Ansible (`ansible-core`) and `make`. `ansible-lint` and `docker login` are optional. The app reads your login shell's `PATH`, so tools in `~/.local/bin` or `/opt/homebrew/bin` are found even when it's opened from Finder.
+**Linux (x86_64 or arm64)**
+
+```bash
+# Debian / Ubuntu
+sudo apt install ./ansible-mario_2.0.0_amd64.deb      # or _arm64.deb
+ansible-mario ~/infra/my-project
+
+# Any distribution
+chmod +x Ansible-Mario-2.0.0-linux-x86_64.AppImage
+./Ansible-Mario-2.0.0-linux-x86_64.AppImage ~/infra/my-project
+```
+
+The Linux build needs WebKitGTK 4.1 (Ubuntu 22.04 or newer, Debian 12, Fedora 38…). The `.deb` declares it as a dependency.
+
+**Requirements on both:** Ansible (`ansible-core`) and `make`. `ansible-lint` and `docker login` are optional. The app reads your login shell's `PATH`, so tools in `~/.local/bin` or `/opt/homebrew/bin` are found even when it's opened from the Finder or the desktop.
+
+Each release has a `SHA256SUMS` file per platform.
 
 ### Try the demo
 
@@ -147,8 +169,10 @@ open -a "Ansible Mario" --args "$PWD/ansible-mario/examples/demo-infra"
 ### Open your own project
 
 ```bash
+# macOS: a small launcher that opens the app on a folder
 ln -s "$PWD/ansible-mario/bin/ansible-mario" /usr/local/bin/ansible-mario
 cd ~/infra/my-project && ansible-mario
+# Linux (.deb): the app itself takes the folder — `ansible-mario ~/infra/my-project`
 ```
 
 ## Build from source
@@ -156,10 +180,11 @@ cd ~/infra/my-project && ansible-mario
 ```bash
 npm install
 npm run tauri dev                              # development
-npm run tauri build -- --bundles app,dmg       # src-tauri/target/release/bundle/
+npm run tauri build -- --bundles app,dmg       # macOS → src-tauri/target/release/bundle/
+npm run tauri build -- --bundles appimage,deb  # Linux (needs libwebkit2gtk-4.1-dev, see the workflow)
 ```
 
-You need Node 20 or newer, Rust (stable) and the Xcode Command Line Tools.
+You need Node 20 or newer and Rust (stable), plus the Xcode Command Line Tools on macOS or the WebKitGTK development packages on Linux.
 
 ### Tests
 
@@ -194,13 +219,17 @@ ANSIBLE_MARIO_FIXTURES=~/infra/a:~/infra/b cargo test --lib -- --nocapture templ
 | `src/legacy/` | The v1 editor, now *Files (advanced)*. |
 | `schema/v2.json` | JSON schema for `ansible-mario.json`. |
 | `skills/ansible-mario-json` | A skill that helps coding agents write `ansible-mario.json` for a project. |
+| `docs/configuration.md` | Every field of `ansible-mario.json`, with a full example. |
+| `AGENTS.md` | Notes for coding agents working on this repository. |
+| `.github/workflows/linux-release.yml` | Builds the Linux AppImage and `.deb` for a release tag. |
 | `examples/demo-infra` | A demo project that runs on localhost. |
 
 ## Limitations
 
-- Apple Silicon only, and unsigned. Linux and an Intel build are planned.
-- There's no snapshot list unless your Makefile has a target that prints one. Restores use `latest` or the name you type.
-- Container status (running or unhealthy) comes from your `status-*` target when you run it. It is not live.
+- **Not signed yet.** macOS builds are Apple Silicon only and not signed with an Apple Developer ID. Linux builds are x86_64 and arm64. There is no Windows build, because Ansible itself needs WSL there.
+- **No snapshot list** unless your Makefile has a target that prints one. Restores use `latest` or the name you type.
+- **Container status is not live.** It comes from your `status-*` target when you run it.
+- **Connecting a GitHub account** (to commit through the API instead of a local push) is planned.
 
 ## License
 
