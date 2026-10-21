@@ -4,25 +4,63 @@
   "title": "ansible-mario.json",
   "description": "Describes an Ansible project for Ansible Mario: environments, products, services and the Makefile targets or playbooks each button runs.",
   "type": "object",
-  "required": ["name", "environments"],
+  "required": [
+    "name",
+    "environments"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "version": { "const": 2 },
-    "name": { "type": "string", "description": "Shown in the app." },
-    "template": { "type": "string", "description": "The template that generated this file (makefile-convention, playbooks)." },
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 2
+    },
+    "name": {
+      "type": "string",
+      "description": "Shown in the app."
+    },
+    "template": {
+      "type": "string",
+      "description": "The template that generated this file (makefile-convention, playbooks)."
+    },
     "environments": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "label", "inventory"],
+        "required": [
+          "id",
+          "label",
+          "inventory"
+        ],
         "properties": {
-          "id": { "type": "string", "description": "Replaces {env} in action targets, and is the word typed to confirm protected runs." },
-          "label": { "type": "string" },
-          "inventory": { "type": "string", "description": "Path relative to the project root." },
-          "release": { "type": "string", "description": "releases/<env>.yml with the version of each service." },
-          "color": { "enum": ["staging", "production", "testes", "neutral"] },
-          "protected": { "type": "boolean", "description": "Every action asks for the environment id to be typed." }
+          "id": {
+            "type": "string",
+            "description": "Replaces {env} in action targets, and is the word typed to confirm protected runs."
+          },
+          "label": {
+            "type": "string"
+          },
+          "inventory": {
+            "type": "string",
+            "description": "Path relative to the project root."
+          },
+          "release": {
+            "type": "string",
+            "description": "releases/<env>.yml with the version of each service."
+          },
+          "color": {
+            "enum": [
+              "staging",
+              "production",
+              "testes",
+              "neutral"
+            ]
+          },
+          "protected": {
+            "type": "boolean",
+            "description": "Every action asks for the environment id to be typed."
+          }
         },
         "additionalProperties": false
       }
@@ -31,27 +69,90 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["from", "to"],
-        "properties": { "from": { "type": "string" }, "to": { "type": "string" } },
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
         "additionalProperties": false
       }
     },
     "registry": {
       "type": "object",
-      "required": ["url"],
-      "properties": { "url": { "type": "string", "description": "Docker registry used to find per-environment tags. Credentials come from docker login." } },
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Docker registry used to find per-environment tags. Credentials come from docker login."
+        }
+      },
       "additionalProperties": false
     },
     "products": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "label", "services"],
+        "required": [
+          "id",
+          "label",
+          "services"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "label": { "type": "string" },
-          "description": { "type": "string" },
-          "services": { "type": "array", "items": { "$ref": "#/$defs/service" } }
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/service"
+            }
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Servers (environment ids) where this product exists. Empty means all."
+          },
+          "placements": {
+            "type": "object",
+            "description": "Where the product lives on a server that isn't its own, e.g. a test product on the production machine.",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "token",
+                "inventory"
+              ],
+              "properties": {
+                "token": {
+                  "type": "string",
+                  "description": "Replaces {env} in targets, and is the word typed to confirm."
+                },
+                "inventory": {
+                  "type": "string"
+                },
+                "release": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
         },
         "additionalProperties": false
       }
@@ -60,14 +161,83 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "label", "group", "action"],
+        "required": [
+          "id",
+          "label",
+          "group",
+          "action"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "label": { "type": "string" },
-          "group": { "enum": ["machine", "backup", "observability", "verify", "maintenance", "other"] },
-          "description": { "type": "string" },
-          "action": { "$ref": "#/$defs/action" },
-          "destructive": { "type": "boolean", "description": "Deletes or restores data: asks for the typed word in every environment." }
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "group": {
+            "enum": [
+              "machine",
+              "backup",
+              "observability",
+              "verify",
+              "maintenance",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/$defs/action"
+          },
+          "destructive": {
+            "type": "boolean",
+            "description": "Deletes or restores data: asks for the typed word in every environment."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "variables": {
+      "type": "array",
+      "description": "Settings the app edits in your YAML files (notifications, feature flags). Secrets are written into the vault and never shown.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "key",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "bool",
+              "text",
+              "secret"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "The YAML key at column 0; for a secret, the vault key."
+          },
+          "files": {
+            "type": "object",
+            "description": "Server id → file that holds the key.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
         },
         "additionalProperties": false
       }
@@ -79,29 +249,145 @@
       "type": "object",
       "description": "Runs a Makefile target ({env} is replaced by the environment id) or a playbook with the environment's inventory and release.",
       "properties": {
-        "make": { "type": "string", "examples": ["deploy-shop-nestjs-{env}"] },
-        "playbook": { "type": "string" },
-        "envs": { "type": "array", "items": { "type": "string" }, "description": "Environments where the action exists. Empty means all." }
+        "make": {
+          "type": "string",
+          "examples": [
+            "deploy-shop-nestjs-{env}"
+          ]
+        },
+        "playbook": {
+          "type": "string"
+        },
+        "envs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Environments where the action exists. Empty means all."
+        },
+        "includesDeploy": {
+          "type": "boolean",
+          "description": "migrate/seed only: this action also installs the release version, so 'deploy + migrations' runs it alone."
+        }
       },
-      "oneOf": [{ "required": ["make"] }, { "required": ["playbook"] }],
+      "oneOf": [
+        {
+          "required": [
+            "make"
+          ]
+        },
+        {
+          "required": [
+            "playbook"
+          ]
+        }
+      ],
       "additionalProperties": false
     },
     "service": {
       "type": "object",
-      "required": ["id", "label", "kind"],
+      "required": [
+        "id",
+        "label",
+        "kind"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "label": { "type": "string" },
-        "kind": { "enum": ["nestjs", "worker", "nextjs", "vite", "nginx", "postgres", "redis", "mysql", "mongodb", "node", "service"] },
-        "releaseKey": { "type": "string", "description": "Key in releases/<env>.yml holding this service's version." },
-        "image": { "type": "string" },
-        "perEnvImage": { "type": "boolean", "description": "The tag carries the environment (-staging-): promoting looks the tag up in the registry." },
-        "container": { "type": "string" },
-        "description": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "nestjs",
+            "worker",
+            "nextjs",
+            "vite",
+            "nginx",
+            "postgres",
+            "redis",
+            "mysql",
+            "mongodb",
+            "node",
+            "service"
+          ]
+        },
+        "releaseKey": {
+          "type": "string",
+          "description": "Key in releases/<env>.yml holding this service's version."
+        },
+        "image": {
+          "type": "string"
+        },
+        "perEnvImage": {
+          "type": "boolean",
+          "description": "The tag carries the environment (-staging-): promoting looks the tag up in the registry."
+        },
+        "container": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
         "actions": {
           "type": "object",
-          "propertyNames": { "enum": ["deploy", "migrate", "seed", "maintenanceOn", "maintenanceOff"] },
-          "additionalProperties": { "$ref": "#/$defs/action" }
+          "propertyNames": {
+            "enum": [
+              "deploy",
+              "migrate",
+              "seed",
+              "maintenanceOn",
+              "maintenanceOff"
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "versions": {
+          "type": "object",
+          "description": "Where the versions offered when deploying come from.",
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "enum": [
+                "registry",
+                "git",
+                "none"
+              ]
+            },
+            "tagFormat": {
+              "type": "string",
+              "examples": [
+                "{version}-{commit}-{build}",
+                "{version}-{env}-{commit}-{build}",
+                "v{version}"
+              ],
+              "description": "Fields {version} {env} {commit} {build}; tags that don't match are hidden."
+            },
+            "repo": {
+              "type": "string",
+              "description": "git: the application repository, relative to the project."
+            },
+            "branch": {
+              "type": "string"
+            },
+            "commitFormat": {
+              "enum": [
+                "short",
+                "full"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
