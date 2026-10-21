@@ -86,6 +86,10 @@ pub fn short(value: &str) -> String {
     if v.len() >= 12 && v.chars().all(|c| c.is_ascii_hexdigit()) {
         return v[..7].to_string();
     }
+    // as tags `dev-` (construídas fora da CI) mantêm o prefixo à vista
+    if let Some(rest) = v.strip_prefix("dev-") {
+        return format!("dev-{}", rest.split('-').next().unwrap_or(rest));
+    }
     v.split('-').next().unwrap_or(v).to_string()
 }
 
@@ -131,5 +135,6 @@ mod tests {
     fn short_versions() {
         assert_eq!(short("1.21.0-8f3a2c1-c2e5b81f"), "1.21.0");
         assert_eq!(short("75c1600d1b281b7ebaa600d3744275b45f6c74db"), "75c1600");
+        assert_eq!(short("dev-1.16.0-cf24f14-c2e5b81f"), "dev-1.16.0");
     }
 }
