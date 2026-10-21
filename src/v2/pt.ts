@@ -413,7 +413,7 @@ export const PT: Record<string, string> = {
   "How many to show": "Quantas mostrar",
   "In Settings → Products, give a service an image in the registry (and the registry URL in General), or a git repository. Then its builds show here.": "Em Definições → Produtos, dá a um serviço uma imagem no registry (e o URL do registry em Geral), ou um repositório git. As builds dele aparecem aqui.",
   "Installed on {env}": "Instalada em {env}",
-  "It also deploys (installs the release version) — so “Deploy + migrations” runs only this": "Também faz deploy (instala a versão do release) — o “Deploy + migrações” corre só esta",
+  "It also deploys (installs the release version), so no separate deploy runs before it": "Também faz deploy (instala a versão do release): não corre um deploy antes",
   "Migrations only": "Só migrações",
   "No builds match the tag format.": "Nenhuma build bate com o formato da tag.",
   "No service has a version source": "Nenhum serviço tem fonte de versões",

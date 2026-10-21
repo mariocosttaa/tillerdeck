@@ -269,7 +269,7 @@ function ActionEditor({ name, a, tokens, onChange }: { name: string; a?: Action;
       {mode !== "none" && (name === "migrate" || name === "seed") && (
         <label className="flex items-center gap-2 text-[12px] text-fg-2 md:col-start-2 md:col-end-5">
           <Toggle on={!!a!.includesDeploy} onChange={(v) => onChange({ ...a, includesDeploy: v || undefined })} />
-          {t("It also deploys (installs the release version) — so “Deploy + migrations” runs only this")}
+          {t("It also deploys (installs the release version), so no separate deploy runs before it")}
         </label>
       )}
     </div>
@@ -284,7 +284,7 @@ function VersionsEditor({ s, onChange }: { s: Service; onChange: (v?: Versions) 
   return (
     <div className="space-y-2">
       <p className="sec-h">{t("Versions to choose from when deploying")}</p>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         <Field label={t("Source")}>
           <Select value={src} onChange={(x) => (x === "none" && !s.image ? onChange(undefined) : set({ source: x as Versions["source"] }))}
             options={[{ value: "registry", label: t("Registry builds (image tags)") }, { value: "git", label: t("Git commits") }, { value: "none", label: t("None — keep the release version") }]} />

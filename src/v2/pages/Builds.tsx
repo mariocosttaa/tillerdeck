@@ -57,16 +57,16 @@ export function Builds() {
 
   return (
     <section className="scroll min-w-0 flex-1 overflow-auto px-6 pb-8 pt-5">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-3">
         <Select
-          className="w-[300px]"
+          className="w-[260px] shrink-0"
           value={serviceKey(p, s)}
           onChange={choose}
           options={items.map((x) => ({ value: serviceKey(x.p, x.s), label: x.s.label, hint: x.p.label }))}
         />
-        <span className="min-w-0 truncate text-[12.5px] text-fg-3"><Package size={13} className="mr-1 inline" />{sourceLabel(ws, src, s)}{src.tagFormat ? ` · ${src.tagFormat}` : ""}</span>
-        <span className="ml-auto text-[12px] text-fg-3">{at ? t("updated {when}", { when: relTime(new Date(at).toISOString()) }) : ""}</span>
-        <button className="b b-sm" onClick={() => load(true)} disabled={loading}><RefreshCw size={13} className={loading ? "animate-spin" : ""} />{t("Refresh")}</button>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-3"><Package size={13} className="mr-1 inline" />{sourceLabel(ws, src, s)}{src.tagFormat ? ` · ${src.tagFormat}` : ""}</span>
+        <span className="shrink-0 text-[12px] text-fg-3">{at ? t("updated {when}", { when: relTime(new Date(at).toISOString()) }) : ""}</span>
+        <button className="b b-sm shrink-0" onClick={() => load(true)} disabled={loading}><RefreshCw size={13} className={loading ? "animate-spin" : ""} />{t("Refresh")}</button>
       </div>
 
       <div className="mt-4 grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(servers.length, 3)}, minmax(0,1fr))` }}>
