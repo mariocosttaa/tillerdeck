@@ -1,13 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { CircleCheck, CircleSlash, CircleX, Copy, LoaderCircle, RefreshCw, ScrollText } from "lucide-react";
 import { useWs } from "../context";
-import { duration, relTime } from "../lib";
+import { duration, looksDestructive, relTime } from "../lib";
+import type { HistoryEntry } from "../../api";
 import { EnvDot } from "../ui";
 
 type F = "todas" | "falhadas" | string;
 
 export function Runs() {
   const ws = useWs();
+
+  /** Correr outra vez passa pela mesma confirmação que o botão original. */
+  function rerun(h: HistoryEntry) {
+    const target = h.argv[1];
+    const vars = h.argv.slice(2).map((kv) => kv.split("=") as [string, string]).filter(([k]) => k !== "CONFIRM");
+    const env = ws.manifest.environments.find((e) => e.id === h.meta?.env);
+    const destructive = looksDestructive(`${target} ${h.meta?.action ?? ""}`);
+    ws.confirm({
+      title: `Correr outra vez · ${h.meta?.title ?? target}`,
+      subtitle: `${env?.label ?? "sem ambiente"} · make ${target}`,
+      env,
+      word: env && (env.protected || destructive) ? env.id : undefined,
+      danger: destructive,
+      command: ["make", target, ...vars.map(([k, v]) => `${k}=${v}`)].join(" "),
+      details: ws.makeInfo.get(target)?.recipe,
+      confirmLabel: "Correr outra vez",
+      onConfirm: () => {
+        const all = [...vars];
+        if (ws.makeInfo.get(target)?.usesConfirm) all.push(["CONFIRM", "yes"]);
+        ws.start({ kind: "make", target, vars: all }, h.meta ?? { title: h.label });
+      },
+    });
+  }
   const [f, setF] = useState<F>("todas");
   const mine = useMemo(() => ws.history.filter((h) => h.root === ws.project.root), [ws.history, ws.project.root]);
   const list = mine.filter((h) => f === "todas" || (f === "falhadas" ? h.endedAt && h.exitCode !== 0 : h.meta?.env === f));
@@ -75,7 +99,7 @@ export function Runs() {
             <button className="b flex-1 justify-center" onClick={() => ws.focusRun(sel.id)}><ScrollText size={14} />Log completo</button>
             <button className="b" onClick={() => navigator.clipboard.writeText(sel.argv.join(" "))}><Copy size={14} />Copiar comando</button>
             {sel.endedAt && sel.exitCode !== 0 && sel.argv[0] === "make" && (
-              <button className="b" title="Volta a correr o mesmo comando" onClick={() => ws.start({ kind: "make", target: sel.argv[1], vars: sel.argv.slice(2).map((kv) => kv.split("=") as [string, string]) }, sel.meta ?? { title: sel.label })}>
+              <button className="b" title="Volta a correr o mesmo comando, com confirmação" onClick={() => rerun(sel)}>
                 <RefreshCw size={14} />
               </button>
             )}
