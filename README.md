@@ -65,7 +65,7 @@ flowchart LR
 
 ### Detected from your project
 
-The app is driven by an **`tillerdeck.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: the app **reads the project and proposes it**, and you review it before anything is saved.
+The app is driven by a **`tillerdeck.json`** at the root of your infra repo. It is versioned with the project, so the whole team sees the same thing. You don't write it by hand: the app **reads the project and proposes it**, and you review it before anything is saved.
 
 - **Makefile.** Targets named `verb-product-technology-environment` (for example `deploy-shop-nestjs-staging` or `run-migrations-shop-nestjs-production`) become products, services and actions. Targets without a product (`deploy-backup-*`, `provision-system-*`, `ping-*`) become operations.
 - **Playbooks and roles, by what's inside.** Without a Makefile, or for playbooks no target runs, the app reads each playbook and the roles it uses:
@@ -141,28 +141,37 @@ What the file describes, and what you can change in **Settings** (or the JSON ta
 
 ### Install
 
-Download from the [latest release](https://github.com/mariocosttaa/tillerdeck/releases/latest).
+#### Option 1: one command (recommended, no warning)
 
-**One line (macOS or Linux), no security warning:**
+Open **Terminal** and paste:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/install.sh | sh
 ```
 
-It downloads the latest release, checks its SHA-256, and installs it: `/Applications/Tillerdeck.app` on a Mac, `~/.local/bin/tillerdeck` on Linux. Read [`install.sh`](install.sh) first if you like.
+It downloads the latest release, checks its SHA-256, and installs it: `/Applications/Tillerdeck.app` on a Mac, `~/.local/bin/tillerdeck` on Linux. Then open Tillerdeck from Launchpad or Spotlight. There's no security warning because files fetched with `curl` aren't quarantined; only files downloaded by a browser are. Read [`install.sh`](install.sh) first if you like.
 
-**macOS (Apple Silicon), by hand**
+#### Option 2: the `.dmg` (macOS, Apple Silicon)
 
-1. Open `Tillerdeck-2.1.0-macos-arm64.dmg` (or the `.zip`) and drag **Tillerdeck.app** to `/Applications`.
-2. The app is not notarised by Apple yet, so the first open shows *"Apple could not verify Tillerdeck"*. Allow it once, either way:
-   - **System Settings → Privacy & Security**, scroll down, **Open Anyway**; or
-   - in the terminal:
+Tillerdeck isn't notarised by Apple yet (that needs a paid Apple Developer account), so macOS asks you to allow it **once**.
 
-     ```bash
-     xattr -dr com.apple.quarantine "/Applications/Tillerdeck.app"
-     ```
+1. Download `Tillerdeck-2.1.0-macos-arm64.dmg` from the [latest release](https://github.com/mariocosttaa/tillerdeck/releases/latest) and open it.
+2. Drag **Tillerdeck** onto **Applications**.
+3. Open **Tillerdeck** from Applications. macOS says *"Tillerdeck" Not Opened: Apple could not verify "Tillerdeck" is free of malware…*. Press **Done** (not *Move to Trash*).
+4. Open the Apple menu → **System Settings** → **Privacy & Security** and scroll to the bottom, to the **Security** section. You'll see *"Tillerdeck" was blocked to protect your Mac*. Press **Open Anyway**.
+5. Confirm with your password or Touch ID, then press **Open Anyway** again in the dialog that appears.
 
-**Linux (x86_64 or arm64)**
+That's it: from then on Tillerdeck opens normally, also after updates installed the same way.
+
+Prefer the terminal? Steps 3 to 5 are the same as running this once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Tillerdeck.app"
+```
+
+*If you see "Tillerdeck is damaged and can't be opened", you have a file from the first upload of 21 Oct 2026: download it again.*
+
+#### Option 3: Linux packages
 
 ```bash
 # Debian / Ubuntu
