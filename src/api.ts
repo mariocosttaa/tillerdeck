@@ -145,6 +145,9 @@ export const api = {
     invoke<Record<string, boolean>>("maintenance_state", { root, inventory }),
   registryMatch: (url: string, image: string, fromTag: string, from: string, to: string) =>
     invoke<{ prefix: string; candidates: string[] } | null>("registry_match", { url, image, fromTag, from, to }),
+  releaseCommitMany: (root: string, files: string[], message: string) => invoke<string>("release_commit_many", { root, files, message }),
+  gitRemote: (root: string) => invoke<GitRemote>("git_remote", { root }),
+  gitPush: (root: string, branch: string) => invoke<string>("git_push", { root, branch }),
   registryBuilds: (url: string, image: string, format: string | undefined, env: string | undefined, limit?: number) =>
     invoke<Build[]>("registry_builds", { url, image, format: format || null, env: env || null, limit: limit ?? null }),
   gitCommits: (root: string, repo: string, branch?: string, limit?: number) =>
@@ -192,6 +195,16 @@ export interface Versions {
   branch?: string;
   commitFormat?: "short" | "full";
   limit?: number;
+}
+
+export interface GitRemote {
+  branch?: string;
+  branches: string[];
+  remote?: string;
+  url?: string;
+  upstream?: string;
+  ahead: number;
+  behind: number;
 }
 
 export interface Build {
