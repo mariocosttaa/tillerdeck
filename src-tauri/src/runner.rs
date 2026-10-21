@@ -51,6 +51,26 @@ pub enum RunSpec {
     },
 }
 
+/// O que a interface v2 sabe de uma corrida: o que é, sobre quê, onde.
+/// Fica no histórico para as Execuções e para "último deploy".
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RunMeta {
+    #[serde(default)]
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub env: Option<String>,
+    /// `produto.serviço`, quando a corrida é sobre um serviço
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
+    /// deploy · migrate · seed · promote · operação…
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    /// a versão que se quis instalar
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryEntry {
@@ -63,6 +83,8 @@ pub struct HistoryEntry {
     pub exit_code: Option<i32>,
     pub cancelled: bool,
     pub log_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<RunMeta>,
 }
 
 #[derive(Serialize, Clone)]
@@ -76,6 +98,8 @@ struct OutputEvent<'a> {
 struct Running {
     pgid: i32,
     signals_sent: u8,
+    root: String,
+    env: Option<String>,
 }
 
 #[derive(Default)]
@@ -201,8 +225,16 @@ fn pump<RT: Runtime, R: std::io::Read + Send + 'static>(
     })
 }
 
-pub fn start<R: Runtime>(app: AppHandle<R>, runs: Arc<Runs>, root: &Path, spec: RunSpec) -> Result<HistoryEntry, String> {
+pub fn start<R: Runtime>(app: AppHandle<R>, runs: Arc<Runs>, root: &Path, spec: RunSpec, meta: Option<RunMeta>) -> Result<HistoryEntry, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
+    // Um serviço de cada vez por ambiente: duas corridas na mesma máquina
+    // pisam-se (o Makefile do saco-infra diz o mesmo).
+    if let Some(env) = meta.as_ref().and_then(|m| m.env.as_ref()) {
+        let root_s = root.to_string_lossy();
+        if runs.running.lock().unwrap().values().any(|r| r.root == root_s && r.env.as_ref() == Some(env)) {
+            return Err(format!("já há uma corrida em {env} — espera que acabe ou cancela-a"));
+        }
+    }
     let (program, args, label) = build_argv(&root, &spec)?;
     let id = format!("{}-{:04x}", chrono::Local::now().format("%Y%m%d-%H%M%S"), rand_suffix());
     let log_path = data_dir(&app)?.join("logs").join(format!("{id}.log"));
@@ -238,9 +270,15 @@ pub fn start<R: Runtime>(app: AppHandle<R>, runs: Arc<Runs>, root: &Path, spec: 
         exit_code: None,
         cancelled: false,
         log_path: log_path.to_string_lossy().into_owned(),
+        meta: meta.clone(),
     };
     upsert_history(&app, &runs, &entry);
-    runs.running.lock().unwrap().insert(id.clone(), Running { pgid, signals_sent: 0 });
+    runs.running.lock().unwrap().insert(id.clone(), Running {
+        pgid,
+        signals_sent: 0,
+        root: root.to_string_lossy().into_owned(),
+        env: meta.and_then(|m| m.env),
+    });
 
     let out_t = pump(app.clone(), id.clone(), "stdout", child.stdout.take().unwrap(), log.clone());
     let err_t = pump(app.clone(), id.clone(), "stderr", child.stderr.take().unwrap(), log.clone());
@@ -367,7 +405,7 @@ mod tests {
 
         let root = local_project("ok");
         let runs = Arc::new(Runs::default());
-        let entry = start(h.clone(), runs.clone(), &root, spec(0)).expect("arranca");
+        let entry = start(h.clone(), runs.clone(), &root, spec(0), None).expect("arranca");
         let mut saw_msg = false;
         let exit = loop {
             let m = rx.recv_timeout(Duration::from_secs(60)).expect("acaba em 60s");
@@ -394,7 +432,7 @@ mod tests {
 
         let root = local_project("cancel");
         let runs = Arc::new(Runs::default());
-        let entry = start(h.clone(), runs.clone(), &root, spec(120)).unwrap();
+        let entry = start(h.clone(), runs.clone(), &root, spec(120), None).unwrap();
         // Espera pela pausa e cancela.
         loop {
             let m = rx.recv_timeout(Duration::from_secs(60)).unwrap();

@@ -1,5 +1,7 @@
 mod manifest;
+mod ops;
 mod project;
+mod registry;
 mod releases;
 mod template;
 mod runner;
@@ -95,8 +97,112 @@ async fn vault_save(root: String, path: String, content: String) -> Result<(), S
 }
 
 #[tauri::command]
-fn run_start(app: AppHandle, runs: State<Runs>, root: String, spec: runner::RunSpec) -> Result<runner::HistoryEntry, String> {
-    runner::start(app, runs.inner().clone(), &root_path(&root), spec)
+fn run_start(app: AppHandle, runs: State<Runs>, root: String, spec: runner::RunSpec, meta: Option<runner::RunMeta>) -> Result<runner::HistoryEntry, String> {
+    runner::start(app, runs.inner().clone(), &root_path(&root), spec, meta)
+}
+
+// ---------------------------------------------------------------------------
+// v2: manifesto, templates, releases, registry
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectState {
+    manifest: Option<manifest::Manifest>,
+    /// O manifesto existe mas não se leu (JSON inválido).
+    manifest_error: Option<String>,
+    problems: Vec<manifest::Problem>,
+    /// Os alvos que existem no Makefile — um botão sem alvo fica desligado.
+    targets: Vec<String>,
+    /// env → (chave → valor) de cada releases/<env>.yml
+    releases: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    git: ops::GitInfo,
+    callbacks: Vec<String>,
+}
+
+#[tauri::command]
+async fn project_state(root: String) -> Result<ProjectState, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = root_path(&root);
+        let targets: std::collections::BTreeSet<String> = project::make_targets(&r).into_iter().map(|t| t.name).collect();
+        let (manifest, manifest_error) = match manifest::load(&r) {
+            Ok(m) => (m, None),
+            Err(e) => (None, Some(e)),
+        };
+        let problems = manifest.as_ref().map(|m| manifest::validate(&r, m, &targets)).unwrap_or_default();
+        let releases = manifest
+            .as_ref()
+            .map(|m| {
+                m.environments
+                    .iter()
+                    .filter_map(|e| e.release.as_ref().map(|rel| (e.id.clone(), releases::read(&r, rel).unwrap_or_default())))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let callbacks = project::config_dump(&r)
+            .ok()
+            .and_then(|v| v.as_array().cloned())
+            .and_then(|a| a.into_iter().find(|c| c.get("name").and_then(|n| n.as_str()) == Some("CALLBACKS_ENABLED")))
+            .and_then(|c| c.get("value").and_then(|v| v.as_array()).cloned())
+            .map(|a| a.into_iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        Ok(ProjectState { manifest, manifest_error, problems, targets: targets.into_iter().collect(), releases, git: ops::git_info(&r), callbacks })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn template_report(root: String, template: String) -> Result<template::Report, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = root_path(&root);
+        match template.as_str() {
+            "makefile-convention" => Ok(template::makefile_convention(&r)),
+            "playbooks" => Ok(template::playbooks_only(&r)),
+            other => Err(format!("template desconhecido: {other}")),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn manifest_save(root: String, manifest: manifest::Manifest) -> Result<(), String> {
+    manifest::save(&root_path(&root), &manifest)
+}
+
+#[tauri::command]
+fn release_set(root: String, release: String, key: String, value: String) -> Result<String, String> {
+    releases::set(&root_path(&root), &release, &key, &value)
+}
+
+#[tauri::command]
+async fn release_history(root: String, release: String, key: String) -> Result<Vec<ops::Revision>, String> {
+    tauri::async_runtime::spawn_blocking(move || ops::history(&root_path(&root), &release, &key))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn release_commit(root: String, release: String, message: String) -> Result<String, String> {
+    ops::commit_file(&root_path(&root), &release, &message)
+}
+
+#[tauri::command]
+async fn maintenance_state(root: String, inventory: String) -> Result<std::collections::BTreeMap<String, bool>, String> {
+    tauri::async_runtime::spawn_blocking(move || ops::maintenance(&root_path(&root), &inventory))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn registry_match(url: String, image: String, from_tag: String, from: String, to: String) -> Result<Option<registry::Match>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let tags = registry::list_tags(&url, &image)?;
+        Ok(registry::match_env_tag(&tags, &from_tag, &from, &to))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -236,6 +342,14 @@ pub fn run() {
             initial_project,
             set_dirty,
             force_quit,
+            project_state,
+            template_report,
+            manifest_save,
+            release_set,
+            release_history,
+            release_commit,
+            maintenance_state,
+            registry_match,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
