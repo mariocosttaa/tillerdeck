@@ -232,24 +232,8 @@ fn must(o: shell::Output) -> Result<String, String> {
     if o.ok { Ok(o.stdout.trim().to_string()) } else { Err(strip_credentials(format!("{}{}", o.stdout, o.stderr).trim())) }
 }
 
-/// Guarda os releases alterados na branch escolhida e envia-a.
-///
-/// Na própria branch: commit e push normais. Noutra branch: o commit faz-se
-/// SEM checkout — parte da branch no remote, aplica só as chaves que mudaram
-/// (não o ficheiro inteiro da tua branch) num índice temporário e envia.
-/// A tua branch, o índice e os ficheiros por gravar ficam como estavam.
-pub fn publish(root: &Path, files: &[String], message: &str, branch: &str) -> Result<String, String> {
-    let r = remote(root);
-    let current = r.branch.clone().unwrap_or_default();
-    if branch.is_empty() || branch == current {
-        let sha = commit_files(root, files, message)?;
-        let to = push(root, &current)?;
-        return Ok(format!("{sha} → {to}"));
-    }
-    let name = r.remote.ok_or("o repositório não tem remote")?;
-    for f in files {
-        resolve(root, f)?;
-    }
+/// Um commit em `branch` (como está agora no remote) com as chaves de release que mudaram.
+fn commit_on(root: &Path, name: &str, files: &[String], message: &str, branch: &str) -> Result<String, String> {
     must(git_with(root, &["fetch", "--quiet", &name, &format!("refs/heads/{branch}")], &[], None)?)
         .map_err(|e| format!("não consegui ler `{name}/{branch}`: {e}"))?;
     let base = must(git_with(root, &["rev-parse", "FETCH_HEAD"], &[], None)?)?;
@@ -287,9 +271,68 @@ pub fn publish(root: &Path, files: &[String], message: &str, branch: &str) -> Re
         must(git_with(root, &["commit-tree", &tree, "-p", &base, "-m", message], &[], None)?)
     })();
     let _ = std::fs::remove_file(&index);
-    let commit = result?;
-    must(git_with(root, &["push", "--porcelain", &name, &format!("{commit}:refs/heads/{branch}")], &[], None)?)
-        .map_err(|e| format!("o push para `{branch}` foi recusado: {e}"))?;
+    result
+}
+
+/// O essencial de um push recusado: sem cores e sem o ruído dos hooks.
+fn push_error(text: &str) -> String {
+    let mut clean = String::new();
+    let mut esc = false;
+    for c in text.chars() {
+        if esc {
+            if c.is_ascii_alphabetic() { esc = false; }
+            continue;
+        }
+        if c == '\u{1b}' { esc = true; continue; }
+        clean.push(c);
+    }
+    let clean = strip_credentials(&clean);
+    let key: Vec<&str> = clean
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with('!') || l.starts_with("error:") || l.starts_with("fatal:") || l.starts_with("remote: error") || l.contains("rejected"))
+        .collect();
+    if key.is_empty() {
+        clean.lines().rev().filter(|l| !l.trim().is_empty()).take(6).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+    } else {
+        key.join("\n")
+    }
+}
+
+/// Guarda os releases alterados na branch escolhida e envia-a.
+///
+/// Na própria branch: commit e push normais. Noutra branch: o commit faz-se
+/// SEM checkout — parte da branch no remote, aplica só as chaves que mudaram
+/// (não o ficheiro inteiro da tua branch) num índice temporário e envia.
+/// A tua branch, o índice e os ficheiros por gravar ficam como estavam.
+pub fn publish(root: &Path, files: &[String], message: &str, branch: &str) -> Result<String, String> {
+    let r = remote(root);
+    let current = r.branch.clone().unwrap_or_default();
+    if branch.is_empty() || branch == current {
+        let sha = commit_files(root, files, message)?;
+        let to = push(root, &current)?;
+        return Ok(format!("{sha} → {to}"));
+    }
+    let name = r.remote.ok_or("o repositório não tem remote")?;
+    for f in files {
+        resolve(root, f)?;
+    }
+    // Se a branch mudar no remote entretanto (outro push durante o hook
+    // pre-push, por exemplo), volta-se a ler e a fazer o commit por cima.
+    let mut attempt = 0;
+    let commit = loop {
+        attempt += 1;
+        let commit = commit_on(root, &name, files, message, branch)?;
+        let out = git_with(root, &["push", "--porcelain", &name, &format!("{commit}:refs/heads/{branch}")], &[], None)?;
+        if out.ok {
+            break commit;
+        }
+        let text = format!("{}{}", out.stdout, out.stderr);
+        let moved = ["cannot lock ref", "fetch first", "non-fast-forward", "stale info", "incorrect old value"].iter().any(|k| text.contains(k));
+        if !moved || attempt >= 3 {
+            return Err(format!("o push para `{branch}` foi recusado: {}", push_error(&text)));
+        }
+    };
     // a branch local acompanha, se não estiver aberta noutra worktree e for só avançar
     let local = format!("refs/heads/{branch}");
     let checked_out = git_line(root, &["worktree", "list", "--porcelain"]).is_some_and(|w| w.lines().any(|l| l == format!("branch {local}")));

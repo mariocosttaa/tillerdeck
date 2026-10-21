@@ -63,8 +63,12 @@ export async function commitReleases(ws: Ws, files: string[], message: string, p
   try {
     if (push) {
       const g = loadGit(ws.project.root);
-      const out = await api.releasePublish(ws.project.root, files, message, g.branch || ws.state.git.branch || "");
+      const branch = g.branch || ws.state.git.branch || "";
+      const out = await api.releasePublish(ws.project.root, files, message, branch);
       ws.toast(t("Commit and push {out} — {msg}", { out, msg: message }));
+      // Enviado para outra branch: na tua, o ficheiro continua alterado (foi o
+      // usado no deploy). Lembra-se o que foi enviado para não pedir de novo.
+      if (branch !== ws.state.git.branch) markPublished(ws, files);
     } else {
       const sha = await api.releaseCommitMany(ws.project.root, files, message);
       ws.toast(t("Commit {sha} — {msg}", { sha, msg: message }));
@@ -75,12 +79,31 @@ export async function commitReleases(ws: Ws, files: string[], message: string, p
   await ws.refresh();
 }
 
-/** Os ficheiros de release do projecto que têm alterações por guardar. */
+const pubKey = (root: string) => `ansible-mario.published.${root}`;
+function markPublished(ws: Ws, files: string[]) {
+  try {
+    const all = JSON.parse(localStorage.getItem(pubKey(ws.project.root)) ?? "{}");
+    for (const f of files) all[f] = JSON.stringify(ws.state.releases[f] ?? {});
+    localStorage.setItem(pubKey(ws.project.root), JSON.stringify(all));
+  } catch {
+    /* sem armazenamento: a faixa volta a aparecer */
+  }
+}
+function published(ws: Ws, f: string): boolean {
+  try {
+    const all = JSON.parse(localStorage.getItem(pubKey(ws.project.root)) ?? "{}");
+    return all[f] !== undefined && all[f] === JSON.stringify(ws.state.releases[f] ?? {});
+  } catch {
+    return false;
+  }
+}
+
+/** Os ficheiros de release do projecto que têm alterações por guardar (e que ainda não foram enviados). */
 export function dirtyReleases(ws: Ws): string[] {
   const rel = new Set([
     ...ws.manifest.environments.map((e) => e.release).filter(Boolean),
     ...ws.manifest.products.flatMap((p) => Object.values(p.placements ?? {}).map((x) => x.release).filter(Boolean)),
   ] as string[]);
   // o git dá caminhos a partir da raiz do repositório, que pode estar acima do projecto
-  return [...rel].filter((r) => ws.state.git.dirty.some((f) => f === r || f.endsWith(`/${r}`)));
+  return [...rel].filter((r) => ws.state.git.dirty.some((f) => f === r || f.endsWith(`/${r}`)) && !published(ws, r));
 }
