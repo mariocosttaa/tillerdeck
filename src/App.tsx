@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Wordmark } from "./components/Logo";
 import { listen } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api, errorText, type FileEntry, type HistoryEntry, type Project, type RunSpec } from "./api";
@@ -15,7 +16,7 @@ type View = "overview" | "run" | "make";
 type Tab = { type: "view"; view: View } | { type: "file"; path: string };
 
 const MAX_LINES = 50_000;
-const RECENTS_KEY = "ansible-mario.recents";
+const RECENTS_KEY = "tillerdeck.recents";
 
 function loadRecents(): string[] {
   try {
@@ -293,7 +294,7 @@ export default function App() {
   if (!project) {
     return (
       <div className="welcome">
-        <h1>Ansible Mario</h1>
+        <h1><Wordmark size={30} /></h1>
         <p className="muted">Abre a pasta de um projecto Ansible — a que tem o <code>ansible.cfg</code>.</p>
         <button className="primary big" onClick={pickProject}>Abrir projecto… <kbd>⌘O</kbd></button>
         {recents.length > 0 && (

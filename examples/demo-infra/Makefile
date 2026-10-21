@@ -1,5 +1,5 @@
 # Demo Makefile: one target per playbook per environment.
-# Targets with `## description` show up as actions in Ansible Mario.
+# Targets with `## description` show up as actions in Tillerdeck.
 ARGS ?=
 
 define run

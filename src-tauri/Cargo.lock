@@ -42,21 +42,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ansible-mario"
-version = "1.0.0"
-dependencies = [
- "chrono",
- "libc",
- "serde",
- "serde_json",
- "shell-words",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "walkdir",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3411,6 +3396,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "tillerdeck"
+version = "1.0.1"
+dependencies = [
+ "chrono",
+ "libc",
+ "serde",
+ "serde_json",
+ "shell-words",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "walkdir",
 ]
 
 [[package]]

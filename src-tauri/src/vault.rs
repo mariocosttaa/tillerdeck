@@ -43,7 +43,7 @@ pub fn save(root: &Path, file: &str, plaintext: &str) -> Result<(), String> {
     // ansible-vault falhar a meio, o original fica intacto. O temporário
     // já sai cifrado.
     let tmp = abs.with_file_name(format!(
-        ".{}.ansible-mario.tmp",
+        ".{}.tillerdeck.tmp",
         abs.file_name().unwrap().to_string_lossy()
     ));
     let tmp_rel = tmp.strip_prefix(root.canonicalize().map_err(|e| e.to_string())?).unwrap().to_string_lossy().into_owned();
@@ -86,7 +86,7 @@ pub fn save(root: &Path, file: &str, plaintext: &str) -> Result<(), String> {
 mod tests {
     #[test]
     fn view_real_vault_in_memory() {
-        let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
+        let Ok(roots) = std::env::var("TILLERDECK_FIXTURES") else { return };
         for root in roots.split(':') {
             let root = std::path::Path::new(root);
             let text = super::view(root, "inventories/group_vars/all/vault.yml");
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn save_roundtrip_keeps_file_encrypted() {
-        let dir = std::env::temp_dir().join(format!("ansible-mario-vault-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("tillerdeck-vault-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("ansible.cfg"), "[defaults]\nvault_password_file = .vault_pass\n").unwrap();
         std::fs::write(dir.join(".vault_pass"), "teste\n").unwrap();

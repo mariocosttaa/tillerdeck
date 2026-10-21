@@ -111,8 +111,8 @@ fn run_log(app: AppHandle, id: String) -> Result<String, String> {
     runner::read_log(&app, &id)
 }
 
-/// O projecto passado na linha de comandos: `ansible-mario ~/infra` ou
-/// `open -a "Ansible Mario" --args ~/infra`.
+/// O projecto passado na linha de comandos: `tillerdeck ~/infra` ou
+/// `open -a "Tillerdeck" --args ~/infra`.
 #[tauri::command]
 fn initial_project() -> Option<String> {
     std::env::args()
@@ -202,9 +202,29 @@ fn should_block(app: &AppHandle) -> bool {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// A app chamava-se Ansible Mario (`pt.solo.ansiblemario`): na primeira vez como
+/// Tillerdeck, o histórico e os logs das corridas vêm da pasta antiga (copiados).
+fn adopt_old_data(app: &AppHandle) {
+    for dir in [app.path().app_data_dir(), app.path().app_cache_dir()].into_iter().flatten() {
+        let old = dir.with_file_name("pt.solo.ansiblemario");
+        if dir.exists() || !old.is_dir() {
+            continue;
+        }
+        for e in walkdir::WalkDir::new(&old).into_iter().flatten() {
+            let Ok(rel) = e.path().strip_prefix(&old) else { continue };
+            let to = dir.join(rel);
+            let _ = if e.file_type().is_dir() { fs::create_dir_all(&to) } else { fs::copy(e.path(), &to).map(|_| ()) };
+        }
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            adopt_old_data(app.handle());
+            Ok(())
+        })
         .manage(Runs::default())
         .manage(Arc::new(Guard::default()))
         .on_window_event(|window, event| {

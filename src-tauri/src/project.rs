@@ -398,9 +398,9 @@ pub fn lint(root: &Path, file: &str) -> Result<Vec<LintIssue>, String> {
 mod tests {
     use super::*;
 
-    /// Projectos reais, só lidos. `ANSIBLE_MARIO_FIXTURES` = pastas separadas por `:`.
+    /// Projectos reais, só lidos. `TILLERDECK_FIXTURES` = pastas separadas por `:`.
     fn fixtures() -> Vec<PathBuf> {
-        std::env::var("ANSIBLE_MARIO_FIXTURES")
+        std::env::var("TILLERDECK_FIXTURES")
             .map(|s| s.split(':').map(PathBuf::from).filter(|p| p.is_dir()).collect())
             .unwrap_or_default()
     }
@@ -443,7 +443,7 @@ mod tests {
 mod lint_tests {
     #[test]
     fn lint_real_playbook() {
-        let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
+        let Ok(roots) = std::env::var("TILLERDECK_FIXTURES") else { return };
         let root = std::path::PathBuf::from(roots.split(':').next().unwrap());
         let issues = super::lint(&root, "playbooks/01-prepare-machine.yml");
         match issues {
@@ -457,7 +457,7 @@ mod lint_tests {
 mod lint_parse_tests {
     #[test]
     fn reports_real_findings_with_lines() {
-        let dir = std::env::temp_dir().join(format!("ansible-mario-lint-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("tillerdeck-lint-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("ansible.cfg"), "[defaults]\n").unwrap();
         std::fs::write(

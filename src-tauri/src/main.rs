@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ansible_mario_lib::run()
+    tillerdeck_lib::run()
 }
