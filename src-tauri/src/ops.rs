@@ -122,3 +122,39 @@ mod tests {
         println!("api_tag em produção, {} versões: {:?}", h.len(), h.iter().take(4).map(|r| (&r.short, &r.date)).collect::<Vec<_>>());
     }
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Commit {
+    pub sha: String,
+    pub short: String,
+    pub date: String,
+    pub subject: String,
+    pub author: String,
+}
+
+/// Os últimos commits de um repositório local (o da aplicação, ao lado do
+/// projecto). Só lê — nem `fetch` faz.
+pub fn commits(root: &Path, repo: &str, branch: Option<&str>, limit: usize) -> Result<Vec<Commit>, String> {
+    let dir = root.join(repo);
+    if !dir.is_dir() {
+        return Err(format!("`{repo}` não existe"));
+    }
+    let n = limit.to_string();
+    let mut args = vec!["log", "-n", &n, "--format=%H%x1f%h%x1f%cI%x1f%an%x1f%s"];
+    if let Some(b) = branch.filter(|b| !b.is_empty()) {
+        args.push(b);
+    }
+    let out = shell::run("git", &args, &dir)?;
+    if !out.ok {
+        return Err(format!("`{repo}` não é um repositório git"));
+    }
+    Ok(out
+        .stdout
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('\x1f').collect();
+            (f.len() == 5).then(|| Commit { sha: f[0].into(), short: f[1].into(), date: f[2].into(), author: f[3].into(), subject: f[4].into() })
+        })
+        .collect())
+}

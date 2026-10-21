@@ -237,6 +237,22 @@ async fn registry_match(url: String, image: String, from_tag: String, from: Stri
 }
 
 #[tauri::command]
+async fn registry_builds(app: tauri::AppHandle, url: String, image: String, format: Option<String>, env: Option<String>, limit: Option<usize>) -> Result<Vec<registry::Build>, String> {
+    use tauri::Manager;
+    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("registry.json");
+    tauri::async_runtime::spawn_blocking(move || registry::builds(&url, &image, format.as_deref(), env.as_deref(), limit.unwrap_or(20).clamp(1, 100), &cache))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn git_commits(root: String, repo: String, branch: Option<String>, limit: Option<usize>) -> Result<Vec<ops::Commit>, String> {
+    tauri::async_runtime::spawn_blocking(move || ops::commits(&root_path(&root), &repo, branch.as_deref(), limit.unwrap_or(20).clamp(1, 200)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 fn run_cancel(runs: State<Runs>, id: String) -> Result<String, String> {
     runner::cancel(&runs, &id)
 }
@@ -381,6 +397,8 @@ pub fn run() {
             release_commit,
             maintenance_state,
             registry_match,
+            registry_builds,
+            git_commits,
             var_set,
             vault_key_set,
             vault_key_has,

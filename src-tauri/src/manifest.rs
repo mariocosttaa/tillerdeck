@@ -138,9 +138,34 @@ pub struct Service {
     /// Uma linha para quem lê: "a fila de emails".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// De onde vêm as versões que se podem instalar (o registry, um repo git).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub versions: Option<Versions>,
     /// deploy · migrate · seed · maintenanceOn · maintenanceOff
     #[serde(default)]
     pub actions: BTreeMap<String, Action>,
+}
+
+/// As versões que se podem escolher num deploy.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Versions {
+    /// registry · git · none
+    pub source: String,
+    /// Como se lê uma tag: `{version}-{env}-{commit}-{build}`. Só servem as tags que batem.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_format: Option<String>,
+    /// Para `git`: o repositório da aplicação, relativo ao projecto (`../saco-api`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// Para `git`: o que se escreve no release — `short` (por omissão) ou `full`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_format: Option<String>,
+    /// Quantas mostrar (por omissão 20).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
 }
 
 /// Uma acção corre um alvo do make (com `{env}` no nome) ou um playbook.
@@ -154,6 +179,10 @@ pub struct Action {
     /// Os ambientes onde a acção existe. Vazio = em todos.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub envs: Vec<String>,
+    /// Esta acção também instala a versão do release (no saco, migrar é o
+    /// deploy com `-e api_run_migrations=true`): "deploy + migrar" é só ela.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub includes_deploy: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
