@@ -1,8 +1,0 @@
----
-- name: Deploy the web app
-  hosts: all
-  become: true
-  tasks:
-    - name: Show what is about to be deployed
-      ansible.builtin.debug:
-        msg: "web {{ web_tag | default('latest') }}"

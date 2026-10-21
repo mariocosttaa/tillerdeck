@@ -78,7 +78,7 @@ async function resolveValue(ws: Ws, s: Service, from: string, to: string): Promi
  * Promover (ou voltar atrás, com `override`): resolve as versões, pede uma
  * confirmação para todos e corre `applyVersions`.
  */
-export async function promoteServices(ws: Ws, items: Item[], override?: { value: string; title: string }, commit = false) {
+export async function promoteServices(ws: Ws, items: Item[], override?: { value: string; title: string }, commit = false, manual: Record<string, string> = {}) {
   const promo = ws.manifest.promotion[0];
   const toId = override ? ws.env.id : promo?.to;
   if (!toId) return;
@@ -89,7 +89,8 @@ export async function promoteServices(ws: Ws, items: Item[], override?: { value:
       plan.push({ ...it, value: override.value, old: ws.state.releases[toId]?.[it.s.releaseKey!] });
       continue;
     }
-    const r = await resolveValue(ws, it.s, promo.from, promo.to);
+    const typed = manual[it.s.releaseKey!];
+    const r = typed ? { value: typed, source: "manual" } : await resolveValue(ws, it.s, promo.from, promo.to);
     if (!r.value) {
       ws.toast(`${it.s.label}: ${r.error}`, true);
       return;
@@ -122,6 +123,8 @@ export function Promote() {
   const [chosen, setChosen] = useState<Set<string> | null>(null);
   const [commit, setCommit] = useState(false);
   const [reg, setReg] = useState<Record<string, { value?: string; error?: string; loading?: boolean }>>({});
+  // Sem registry (ou sem resposta): a tag escreve-se à mão.
+  const [manual, setManual] = useState<Record<string, string>>({});
 
   const from = m.environments.find((e) => e.id === promo?.from);
   const to = m.environments.find((e) => e.id === promo?.to);
@@ -147,7 +150,7 @@ export function Promote() {
   }
 
   const picked = differs.filter(({ p, s }) => sel.has(serviceKey(p, s)));
-  const blocked = picked.filter(({ s }) => s.perEnvImage && !reg[s.releaseKey!]?.value);
+  const blocked = picked.filter(({ s }) => s.perEnvImage && !reg[s.releaseKey!]?.value && !manual[s.releaseKey!]);
   const notDeployable = picked.filter(({ s }) => !canRun({ ...ws, env: to }, s, "deploy"));
   const toggle = (k: string) => {
     const n = new Set(sel);
@@ -194,13 +197,24 @@ export function Promote() {
                 <div className="flex flex-1 items-center gap-3">
                   <div className="whitespace-nowrap"><p className="text-[11.5px] text-fg-3">{to.label} agora</p><p className={`font-mono text-[15px] text-fg-2 ${on ? "line-through decoration-1" : ""}`}>{shortVersion(rt[s.releaseKey!]) || "—"}</p></div>
                   <ArrowRight size={16} style={{ color: (d ?? 1) > 0 ? "var(--w-accent)" : "var(--warn)" }} />
-                  <div className="whitespace-nowrap"><p className="text-[11.5px] text-fg-3">Vai ficar</p><p className="font-mono text-[15px] font-medium text-ok">{shortVersion(r?.value ?? rf[s.releaseKey!])}</p></div>
+                  <div className="whitespace-nowrap"><p className="text-[11.5px] text-fg-3">Vai ficar</p><p className="font-mono text-[15px] font-medium text-ok">{shortVersion(r?.value ?? manual[s.releaseKey!] ?? rf[s.releaseKey!])}</p></div>
                   {d !== null && d < 0 && <Tint color="var(--warn)"><TriangleAlert size={12} />{to.label.toLowerCase()} está à frente</Tint>}
                 </div>
                 {s.perEnvImage ? (
                   r?.loading ? <span className="pill bg-raise-2 text-fg-3">a perguntar ao registry…</span>
                   : r?.value ? <Tint color="var(--ok)"><PackageCheck size={13} />tag encontrada no registry</Tint>
-                  : <span title={r?.error}><Tint color="var(--danger)"><PackageX size={13} />{r?.error ? "registry: " + r.error.slice(0, 40) : "sem tag"}</Tint></span>
+                  : (
+                    <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} title={r?.error}>
+                      <Tint color="var(--warn)"><PackageX size={13} />{r?.error && r.error.length < 44 ? r.error : "sem tag do registry"}</Tint>
+                      <input
+                        className="field !h-8 !w-56 font-mono !text-[12px]"
+                        placeholder={`tag de ${to.label.toLowerCase()}…`}
+                        defaultValue={manual[s.releaseKey!] ?? ""}
+                        onChange={(e) => setManual({ ...manual, [s.releaseKey!]: e.target.value.trim() })}
+                        spellCheck={false}
+                      />
+                    </span>
+                  )
                 ) : (
                   <span className="pill bg-raise-2 text-fg-2"><Copy size={13} />a mesma tag</span>
                 )}
@@ -254,7 +268,7 @@ export function Promote() {
         <div className="mt-auto pt-4">
           {blocked.length > 0 && <p className="mb-2 text-[12px] text-danger">{blocked.map((x) => x.s.label).join(", ")}: falta a tag de {to.label.toLowerCase()}.</p>}
           {notDeployable.length > 0 && <p className="mb-2 text-[12px] text-danger">{notDeployable.map((x) => x.s.label).join(", ")}: sem alvo de deploy em {to.label.toLowerCase()}.</p>}
-          <button className="b b-pri h-11 w-full justify-center text-[14px]" disabled={!picked.length || blocked.length > 0 || notDeployable.length > 0} onClick={() => promoteServices(ws, picked, undefined, commit)}>
+          <button className="b b-pri h-11 w-full justify-center text-[14px]" disabled={!picked.length || blocked.length > 0 || notDeployable.length > 0} onClick={() => promoteServices(ws, picked, undefined, commit, manual)}>
             <Rocket size={16} />Promover {picked.length} serviço{picked.length === 1 ? "" : "s"}
           </button>
           {to.protected && <p className="mt-2 text-center text-[12px] text-fg-3">Pede a palavra <span className="font-mono" style={{ color: "var(--env-production)" }}>{to.id}</span> uma vez.</p>}
