@@ -1,0 +1,25 @@
+---
+# The API — a demo playbook: it only prints and waits, on localhost.
+- name: The API
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Write the .env
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Pull the image
+      ansible.builtin.pause:
+        seconds: 2
+    - name: Run the migrations
+      ansible.builtin.pause:
+        seconds: 2
+      tags: [migrations]
+    - name: Restart the container
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Wait for /health
+      ansible.builtin.pause:
+        seconds: 2
+    - name: Show what was installed
+      ansible.builtin.debug:
+        msg: "The API on {{ inventory_hostname }} — {{ api_tag | default('') }} {{ app_tag | default('') }}"

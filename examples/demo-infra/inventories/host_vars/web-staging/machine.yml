@@ -1,3 +1,4 @@
 ---
 machine_hostname: web-staging
-swap_size_mb: 2048
+api_maintenance_mode: false
+app_maintenance_mode: false

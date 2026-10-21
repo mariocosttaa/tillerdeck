@@ -1,0 +1,154 @@
+{
+  "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
+  "version": 2,
+  "name": "Demo",
+  "template": "makefile-convention",
+  "environments": [
+    {
+      "id": "staging",
+      "label": "Staging",
+      "inventory": "inventories/staging.ini",
+      "release": "releases/staging.yml",
+      "color": "staging",
+      "protected": false
+    },
+    {
+      "id": "production",
+      "label": "Produção",
+      "inventory": "inventories/production.ini",
+      "release": "releases/production.yml",
+      "color": "production",
+      "protected": true
+    }
+  ],
+  "promotion": [
+    {
+      "from": "staging",
+      "to": "production"
+    }
+  ],
+  "products": [
+    {
+      "id": "demo",
+      "label": "Demo",
+      "description": "the example app",
+      "services": [
+        {
+          "id": "api",
+          "label": "demo-api",
+          "kind": "nestjs",
+          "releaseKey": "api_tag",
+          "image": "demo-api",
+          "perEnvImage": false,
+          "container": "demo-api",
+          "actions": {
+            "deploy": {
+              "make": "deploy-demo-nestjs-{env}"
+            },
+            "migrate": {
+              "make": "run-migrations-demo-nestjs-{env}"
+            }
+          }
+        },
+        {
+          "id": "app",
+          "label": "demo-web",
+          "kind": "nextjs",
+          "releaseKey": "app_tag",
+          "image": "demo-web",
+          "perEnvImage": true,
+          "container": "demo-web",
+          "actions": {
+            "deploy": {
+              "make": "deploy-demo-nextjs-{env}"
+            },
+            "maintenanceOff": {
+              "make": "maintenance-off-demo-nextjs-{env}"
+            },
+            "maintenanceOn": {
+              "make": "maintenance-on-demo-nextjs-{env}"
+            }
+          }
+        },
+        {
+          "id": "nginx",
+          "label": "nginx",
+          "kind": "nginx",
+          "perEnvImage": false,
+          "description": "nginx in front of the API",
+          "actions": {
+            "deploy": {
+              "make": "deploy-demo-nginx-{env}"
+            }
+          }
+        },
+        {
+          "id": "postgres",
+          "label": "Postgres",
+          "kind": "postgres",
+          "perEnvImage": false,
+          "description": "the database",
+          "actions": {
+            "deploy": {
+              "make": "deploy-demo-postgres-{env}"
+            }
+          }
+        },
+        {
+          "id": "redis",
+          "label": "Redis",
+          "kind": "redis",
+          "perEnvImage": false,
+          "description": "the job queue",
+          "actions": {
+            "deploy": {
+              "make": "deploy-demo-redis-{env}"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "id": "deploy-backup",
+      "label": "Instalar backup",
+      "group": "backup",
+      "description": "the backup service · 30-backup",
+      "action": {
+        "make": "deploy-backup-{env}"
+      },
+      "destructive": false
+    },
+    {
+      "id": "restore",
+      "label": "Restaurar",
+      "group": "backup",
+      "description": "rehearse a restore on staging · SNAPSHOT=latest SCOPE=all|db|storage",
+      "action": {
+        "make": "restore-{env}"
+      },
+      "destructive": true
+    },
+    {
+      "id": "provision-system",
+      "label": "Provisionar sistema",
+      "group": "machine",
+      "description": "system, swap and Docker · 01-prepare-machine",
+      "action": {
+        "make": "provision-system-{env}"
+      },
+      "destructive": false
+    },
+    {
+      "id": "ping",
+      "label": "Ping",
+      "group": "verify",
+      "description": "does the machine answer?",
+      "action": {
+        "make": "ping-{env}"
+      },
+      "destructive": false
+    }
+  ]
+}

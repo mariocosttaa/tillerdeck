@@ -1,0 +1,4 @@
+---
+# What is installed on PRODUCTION. Promoting copies the tag the staging tested.
+api_tag: 1.4.1-7a1f003-5f0a77b1
+app_tag: 2.0.0-production-51c9a2d-e1b40c92

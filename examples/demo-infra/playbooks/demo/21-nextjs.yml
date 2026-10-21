@@ -1,0 +1,21 @@
+---
+# The web app — a demo playbook: it only prints and waits, on localhost.
+- name: The web app
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Write the .env
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Pull the image
+      ansible.builtin.pause:
+        seconds: 3
+    - name: Restart the container
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Wait for /
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Show what was installed
+      ansible.builtin.debug:
+        msg: "The web app on {{ inventory_hostname }} — {{ api_tag | default('') }} {{ app_tag | default('') }}"

@@ -1,0 +1,15 @@
+---
+# Redis — a demo playbook: it only prints and waits, on localhost.
+- name: Redis
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Write the compose file
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Start the container
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Show what was installed
+      ansible.builtin.debug:
+        msg: "Redis on {{ inventory_hostname }} — {{ api_tag | default('') }} {{ app_tag | default('') }}"

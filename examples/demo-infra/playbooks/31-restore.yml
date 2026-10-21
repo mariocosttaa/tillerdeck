@@ -1,0 +1,18 @@
+---
+# Restore — a demo playbook: it only prints and waits, on localhost.
+- name: Restore
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Download the snapshot
+      ansible.builtin.pause:
+        seconds: 2
+    - name: Restore the databases
+      ansible.builtin.pause:
+        seconds: 2
+    - name: Restore the files
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Show what was installed
+      ansible.builtin.debug:
+        msg: "Restore on {{ inventory_hostname }} — {{ api_tag | default('') }} {{ app_tag | default('') }}"

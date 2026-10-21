@@ -1,0 +1,15 @@
+---
+# nginx in front of the API — a demo playbook: it only prints and waits, on localhost.
+- name: nginx in front of the API
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Render the config
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Reload nginx
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Show what was installed
+      ansible.builtin.debug:
+        msg: "nginx in front of the API on {{ inventory_hostname }} — {{ api_tag | default('') }} {{ app_tag | default('') }}"

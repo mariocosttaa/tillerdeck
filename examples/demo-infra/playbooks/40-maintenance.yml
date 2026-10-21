@@ -1,0 +1,15 @@
+---
+# Maintenance mode — a demo playbook: it only prints and waits, on localhost.
+- name: Maintenance mode
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Switch the flag
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Reload the app
+      ansible.builtin.pause:
+        seconds: 1
+    - name: Show what was installed
+      ansible.builtin.debug:
+        msg: "Maintenance mode on {{ inventory_hostname }} — {{ api_tag | default('') }} {{ app_tag | default('') }}"
