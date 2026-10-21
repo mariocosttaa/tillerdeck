@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
+/* As fontes da marca (SIL Open Font License), dentro da app: nada vem da rede. */
+@font-face { font-family: "Inter"; font-weight: 400; font-display: block; src: url("./assets/fonts/Inter-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Inter"; font-weight: 500 700; font-display: block; src: url("./assets/fonts/Inter-Medium.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 400; font-display: block; src: url("./assets/fonts/Sora-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 500 700; font-display: block; src: url("./assets/fonts/Sora-SemiBold.ttf") format("truetype"); }
+
 /* =============================================================================
-   Ansible Mario v2 — app de secretária moderna.
+   Tillerdeck v2 — app de secretária moderna.
    A janela é escura; a barra lateral vive nela; o conteúdo é um painel
    arredondado por cima. A cor vem das tecnologias e dos ambientes; o acento
    (índigo) só no que é acção principal.
@@ -16,8 +22,9 @@
   --w-fg: #ededf0;
   --w-fg-2: #a0a0aa;
   --w-fg-3: #6b6b76;
-  --w-accent: #7c6cff;
-  --w-accent-2: #5b8cff;
+  --w-accent: #7a6bf7;
+  --w-accent-2: #2cc4a4;
+  --w-mare: #2cc4a4;
   --w-hover: rgba(255, 255, 255, 0.045);
   --w-console: #0a0a0c;
   --env-staging: #e0a43a;
@@ -39,8 +46,9 @@
     --w-fg: #17171c;
     --w-fg-2: #5f5f6a;
     --w-fg-3: #9a9aa5;
-    --w-accent: #6a58f5;
-    --w-accent-2: #4a78f0;
+    --w-accent: #6b5bf5;
+    --w-accent-2: #1fa88b;
+    --w-mare: #1fa88b;
     --w-hover: rgba(0, 0, 0, 0.04);
     --env-staging: #b97d0f;
     --env-production: #d23c3c;
@@ -61,8 +69,9 @@
     --w-fg: #17171c;
     --w-fg-2: #5f5f6a;
     --w-fg-3: #9a9aa5;
-    --w-accent: #6a58f5;
-    --w-accent-2: #4a78f0;
+    --w-accent: #6b5bf5;
+    --w-accent-2: #1fa88b;
+    --w-mare: #1fa88b;
     --w-hover: rgba(0, 0, 0, 0.04);
     --env-staging: #b97d0f;
     --env-production: #d23c3c;
@@ -93,7 +102,8 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Cantarell", "Ubuntu", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Cantarell", "Ubuntu", sans-serif;
+  --font-display: "Sora", "Inter", -apple-system, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 }
 
@@ -108,6 +118,9 @@ body {
   user-select: none;
 }
 input, textarea, select, .selectable { user-select: text; }
+/* títulos em Sora 600, como na marca; o texto em Inter */
+h1, h2, .font-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; }
+.font-bold { font-weight: 600; }
 button { cursor: default; }
 
 @layer components {
