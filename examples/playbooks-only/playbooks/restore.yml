@@ -1,0 +1,6 @@
+- name: Restore the latest backup
+  hosts: app
+  tasks:
+    - name: Restore
+      ansible.builtin.debug:
+        msg: restores the latest dump

@@ -1,0 +1,6 @@
+- import_playbook: provision.yml
+- import_playbook: postgres.yml
+- import_playbook: redis.yml
+- import_playbook: shop-api.yml
+- import_playbook: shop-web.yml
+- import_playbook: proxy.yml

@@ -1,0 +1,4 @@
+- name: Redis container
+  community.docker.docker_container:
+    name: redis
+    image: redis:7-alpine

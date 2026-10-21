@@ -1,0 +1,5 @@
+- name: Prepare the machine
+  hosts: all
+  become: true
+  roles:
+    - common

@@ -1,0 +1,4 @@
+- name: Base packages
+  ansible.builtin.apt:
+    name: [curl, ca-certificates]
+    update_cache: true

@@ -1,0 +1,9 @@
+- name: Shop web app
+  hosts: app
+  vars_files:
+    - "../releases/{{ env }}.yml"
+  tasks:
+    - name: Run the web container
+      community.docker.docker_container:
+        name: shop-web
+        image: "{{ registry }}/shop-web:{{ web_tag }}"

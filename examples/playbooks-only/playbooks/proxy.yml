@@ -1,0 +1,4 @@
+- name: Reverse proxy
+  hosts: app
+  roles:
+    - nginx

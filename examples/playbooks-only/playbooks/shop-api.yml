@@ -1,0 +1,10 @@
+- name: Shop API
+  hosts: app
+  vars_files:
+    - "../releases/{{ env }}.yml"
+  tasks:
+    - name: Run the API container
+      community.docker.docker_container:
+        name: shop-api
+        image: "{{ registry }}/shop-api:{{ api_tag }}"
+        restart_policy: unless-stopped

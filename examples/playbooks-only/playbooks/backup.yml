@@ -1,0 +1,5 @@
+- name: Back up the database
+  hosts: app
+  tasks:
+    - name: Dump
+      ansible.builtin.command: docker exec postgres pg_dumpall -U postgres

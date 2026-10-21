@@ -1,0 +1,7 @@
+- name: Shop database migrations
+  hosts: app
+  tasks:
+    - name: Run migrations in the API container
+      community.docker.docker_container_exec:
+        container: shop-api
+        command: npm run migration:run

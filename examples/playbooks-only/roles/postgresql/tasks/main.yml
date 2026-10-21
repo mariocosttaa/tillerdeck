@@ -1,0 +1,4 @@
+- name: Postgres container
+  community.docker.docker_container:
+    name: postgres
+    image: "{{ postgres_image }}"

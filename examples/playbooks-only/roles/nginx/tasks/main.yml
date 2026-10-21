@@ -1,0 +1,4 @@
+- name: nginx container
+  community.docker.docker_container:
+    name: nginx
+    image: nginx:1.27-alpine

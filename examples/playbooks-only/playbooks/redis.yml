@@ -1,0 +1,4 @@
+- name: Cache
+  hosts: app
+  roles:
+    - role: redis
