@@ -80,7 +80,7 @@ export function Services({ productId }: { productId?: string }) {
                 )
               )}
             </div>
-            <div className="mt-5 flex flex-wrap gap-x-10 gap-y-3">
+            <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
               {stat(all.length, t("services"))}
               {other && stat(nDiff, t("differ from {env}", { env: other.label }), nDiff ? (promo?.from === env.id ? "var(--w-accent)" : "var(--env-staging)") : undefined)}
               {stat(lastDeploy ? relTime(lastDeploy.endedAt) : "—", t("last deploy from here"))}

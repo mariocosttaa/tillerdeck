@@ -1,4 +1,4 @@
-//! Deteção: ler o projecto e propor o `ansible-mario.json` sem template.
+//! Deteção: ler o projecto e propor o `tillerdeck.json` sem template.
 //!
 //! Junta duas leituras:
 //!
@@ -314,7 +314,20 @@ fn op_title(words: &[String], lang: &str) -> String {
     if words.iter().all(|w| AGGREGATE.contains(&w.as_str())) {
         return if pt { "Instalar tudo".into() } else { "Deploy everything".into() };
     }
-    capitalize(&words.join(" "))
+    if !pt {
+        return capitalize(&words.join(" "));
+    }
+    // em português, as palavras mais comuns dos nomes de playbooks
+    let tr = |w: &str| -> String {
+        match w {
+            "restore" => "restaurar", "provision" => "provisionar", "prepare" => "preparar", "machine" => "máquina",
+            "maintenance" => "manutenção", "monitoring" => "monitorização", "security" => "segurança", "audit" => "auditoria",
+            "check" | "checks" | "verify" => "verificar", "health" => "saúde", "users" => "utilizadores", "update" | "upgrade" => "actualizar",
+            "reset" => "repor", "deploy" => "instalar", "setup" => "configurar", "system" => "sistema", "base" => "base",
+            other => other,
+        }.to_string()
+    };
+    capitalize(&words.iter().map(|w| tr(w)).collect::<Vec<_>>().join(" "))
 }
 
 fn classify(root: &Path, path: &str, lang: &str) -> Found {
@@ -765,10 +778,10 @@ mod tests {
         }
     }
 
-    /// Projectos reais, só lidos (`ANSIBLE_MARIO_FIXTURES=a:b`).
+    /// Projectos reais, só lidos (`TILLERDECK_FIXTURES=a:b`).
     #[test]
     fn real_projects_auto() {
-        let Ok(roots) = std::env::var("ANSIBLE_MARIO_FIXTURES") else { return };
+        let Ok(roots) = std::env::var("TILLERDECK_FIXTURES") else { return };
         for root in roots.split(':') {
             let r = auto(Path::new(root), "pt");
             println!("\n== {root} · {:?} · {}/{}", r.sources, r.matched, r.total);
