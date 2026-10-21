@@ -6,8 +6,9 @@ import { actionFor, lastRun, looksDestructive, makeTarget, opOn, serviceKey, sho
 import { TechIcon, type ConfirmSpec } from "./ui";
 import { t } from "./i18n";
 import type { Prefs } from "./prefs";
+import type { DeployRequest } from "./DeployDialog";
 
-export type Page = "servicos" | "promover" | "backups" | "maquina" | "execucoes" | "definicoes" | "ficheiros" | `produto:${string}`;
+export type Page = "servicos" | "builds" | "promover" | "backups" | "maquina" | "execucoes" | "definicoes" | "ficheiros" | `produto:${string}`;
 
 export interface Ws {
   project: Project;
@@ -37,6 +38,8 @@ export interface Ws {
   openPalette: () => void;
   prefs: Prefs;
   setPrefs: (p: Prefs) => void;
+  /** abre o deploy: escolher o modo (com migrações, seed) e a versão */
+  openDeploy: (r: DeployRequest) => void;
   /** estado de manutenção do inventário, por ficheiro de inventário */
   maint: Record<string, Record<string, boolean>>;
 }
@@ -61,14 +64,14 @@ export function actionMeta(a: string): { label: string; verb: string; icon: Reac
 }
 
 /** As variáveis `VAR ?=` que uma receita usa. */
-function varsFor(ws: Ws, target: string) {
+export function varsFor(ws: Ws, target: string) {
   const info = ws.makeInfo.get(target);
   if (!info) return [];
   const text = info.recipe.join("\n");
   return ws.makeVars.filter((v) => v.name !== "ARGS" && (text.includes(`$(${v.name})`) || text.includes(`\${${v.name}}`)));
 }
 
-function callbackFacts(ws: Ws) {
+export function callbackFacts(ws: Ws) {
   const notify = ws.state.callbacks.filter((c) => !["profile_tasks", "timer", "default", "yaml"].includes(c));
   return notify.length ? [{ icon: <MessageSquare size={16} />, text: t("When it ends, the {cb} callback runs", { cb: notify.join(", ") }) }] : [];
 }
@@ -111,6 +114,8 @@ const wordFor = (w: Where, destructive = false) => (w.server.protected || destru
 export function runServiceAction(ws: Ws, p: Product, s: Service, action: string) {
   const a = s.actions[action];
   if (!a) return;
+  // deploy, migrar e semear abrem o diálogo do deploy (modo + versão)
+  if (["deploy", "migrate", "seed"].includes(action)) return ws.openDeploy({ p, s, action });
   const w = where(p, ws.env);
   const target = makeTarget(a, w.token);
   const meta = actionMeta(action);

@@ -9,6 +9,8 @@ import { Shell } from "./v2/Shell";
 import { Confirm, Modal, Toast, type ConfirmSpec } from "./v2/ui";
 import { LogPanel, RunCard } from "./v2/RunViews";
 import { Palette } from "./v2/Palette";
+import { DeployDialog, type DeployRequest } from "./v2/DeployDialog";
+import { Builds } from "./v2/pages/Builds";
 import { Services } from "./v2/pages/Services";
 import { Promote } from "./v2/pages/Promote";
 import { Backups, Machine } from "./v2/pages/Ops";
@@ -41,6 +43,7 @@ export default function App() {
   const [focus, setFocus] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [deploy, setDeploy] = useState<DeployRequest | null>(null);
   const [makeInfo, setMakeInfo] = useState<Map<string, MakeTarget>>(new Map());
   const [makeVars, setMakeVars] = useState<{ name: string; value: string }[]>([]);
   const [maint, setMaint] = useState<Record<string, Record<string, boolean>>>({});
@@ -201,6 +204,7 @@ export default function App() {
       prefs,
       setPrefs,
       maint,
+      openDeploy: setDeploy,
     };
   }, [proj.project, proj.state, m, env, page, makeInfo, makeVars, runs.runs, runs.history, selected, prefs, maint, refreshing, refreshedAt, refresh]);
 
@@ -290,7 +294,7 @@ export default function App() {
   }
 
   // --------------------------------------------------------------- a app v2
-  const titles: Record<string, string> = { servicos: t("Services"), promover: t("Promote"), backups: t("Backups"), maquina: t("Machine"), execucoes: t("Runs"), definicoes: t("Settings"), ficheiros: t("Files") };
+  const titles: Record<string, string> = { servicos: t("Services"), builds: t("Builds"), promover: t("Promote"), backups: t("Backups"), maquina: t("Machine"), execucoes: t("Runs"), definicoes: t("Settings"), ficheiros: t("Files") };
   const product = page.startsWith("produto:") ? ws.manifest.products.find((p) => `produto:${p.id}` === page) : undefined;
   const focusedRun = focus ? runs.runs[focus] : undefined;
 
@@ -299,6 +303,7 @@ export default function App() {
       <Shell title={product ? product.label : titles[page]} onSwitchProject={pick}>
         {page === "servicos" && <Services />}
         {product && <Services productId={product.id} />}
+        {page === "builds" && <Builds />}
         {page === "promover" && <Promote />}
         {page === "backups" && <Backups />}
         {page === "maquina" && <Machine />}
@@ -316,6 +321,7 @@ export default function App() {
       </Shell>
       {confirm && <Confirm spec={confirm} onClose={() => setConfirm(null)} />}
       {palette && <Palette onClose={() => setPalette(false)} />}
+      {deploy && <DeployDialog key={`${deploy.p.id}.${deploy.s.id}.${deploy.action}.${deploy.preset ?? ""}`} req={deploy} onClose={() => setDeploy(null)} />}
       {quitModal}
       {toastEl}
     </WsProvider>

@@ -145,6 +145,10 @@ export const api = {
     invoke<Record<string, boolean>>("maintenance_state", { root, inventory }),
   registryMatch: (url: string, image: string, fromTag: string, from: string, to: string) =>
     invoke<{ prefix: string; candidates: string[] } | null>("registry_match", { url, image, fromTag, from, to }),
+  registryBuilds: (url: string, image: string, format: string | undefined, env: string | undefined, limit?: number) =>
+    invoke<Build[]>("registry_builds", { url, image, format: format || null, env: env || null, limit: limit ?? null }),
+  gitCommits: (root: string, repo: string, branch?: string, limit?: number) =>
+    invoke<Commit[]>("git_commits", { root, repo, branch: branch || null, limit: limit ?? null }),
 };
 
 export function errorText(e: unknown): string {
@@ -175,6 +179,37 @@ export interface Action {
   make?: string;
   playbook?: string;
   envs?: string[];
+  /** também instala a versão do release (migrar = deploy com migrações) */
+  includesDeploy?: boolean;
+}
+
+/** De onde vêm as versões que se podem escolher num deploy. */
+export interface Versions {
+  source: "registry" | "git" | "none";
+  /** `{version}-{env}-{commit}-{build}` */
+  tagFormat?: string;
+  repo?: string;
+  branch?: string;
+  commitFormat?: "short" | "full";
+  limit?: number;
+}
+
+export interface Build {
+  tag: string;
+  created?: string;
+  digest?: string;
+  version?: string;
+  commit?: string;
+  env?: string;
+  size?: number;
+}
+
+export interface Commit {
+  sha: string;
+  short: string;
+  date: string;
+  subject: string;
+  author: string;
 }
 
 export interface Service {
@@ -186,6 +221,7 @@ export interface Service {
   perEnvImage?: boolean;
   container?: string;
   description?: string;
+  versions?: Versions;
   actions: Record<string, Action>;
 }
 
