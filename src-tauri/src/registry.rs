@@ -454,6 +454,6 @@ mod tests {
 
     #[test]
     fn host_parsing() {
-        assert_eq!(host_of("https://docker-registry.solo-test.site/"), "docker-registry.solo-test.site");
+        assert_eq!(host_of("https://registry.example.com/"), "registry.example.com");
     }
 }

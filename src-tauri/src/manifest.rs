@@ -59,7 +59,7 @@ pub struct Variable {
     pub target: Option<String>,
 }
 
-/// Onde vive um produto num servidor que não é o "seu": o `saco-testes`
+/// Onde vive um produto num servidor que não é o "seu": o `shop-testes`
 /// corre na máquina da produção, com o seu inventário e o seu release.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -161,7 +161,7 @@ pub struct Versions {
     /// Como se lê uma tag: `{version}-{env}-{commit}-{build}`. Só servem as tags que batem.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tag_format: Option<String>,
-    /// Para `git`: o repositório da aplicação, relativo ao projecto (`../saco-api`).
+    /// Para `git`: o repositório da aplicação, relativo ao projecto (`../shop-api`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repo: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -185,7 +185,7 @@ pub struct Action {
     /// Os ambientes onde a acção existe. Vazio = em todos.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub envs: Vec<String>,
-    /// Esta acção também instala a versão do release (no saco, migrar é o
+    /// Esta acção também instala a versão do release (por exemplo, migrar é o
     /// deploy com `-e api_run_migrations=true`): "deploy + migrar" é só ela.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub includes_deploy: bool,

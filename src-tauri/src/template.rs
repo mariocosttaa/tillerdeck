@@ -248,7 +248,7 @@ fn environments(root: &Path, lang: &str) -> Vec<Environment> {
     envs
 }
 
-/// O repositório git de uma app ao lado do projecto (`../decidido-api`) e a
+/// O repositório git de uma app ao lado do projecto (`../shop-api`) e a
 /// branch principal do remote (`origin/master`), que é onde estão os commits
 /// que se podem instalar — não a branch em que a cópia local estiver.
 fn sibling_repo(root: &Path, name: &str) -> Option<(String, Option<String>)> {
@@ -530,7 +530,7 @@ fn inventory_host(root: &Path, inv: &str) -> Option<(String, String)> {
 }
 
 /// Servidores são máquinas. Um inventário que aponta para a mesma máquina
-/// que a staging ou a produção (o `saco-testes` na máquina da produção) não
+/// que a staging ou a produção (o `shop-testes` na máquina da produção) não
 /// é um servidor: passa a produto(s) desse servidor, com o seu inventário e
 /// release (um placement), e as operações dele ficam no servidor com o
 /// alvo já resolvido. Devolve variante → servidor.
@@ -699,7 +699,7 @@ fn detect_variables(root: &Path, envs: &[Environment], variants: &BTreeMap<Strin
                     continue;
                 };
                 let id = match &suffix { Some(_) => format!("{k}@{}", e.id), None => k.clone() };
-                // o grupo é o caminho dentro da pasta da máquina: `notify`, `saco-admin/nestjs`
+                // o grupo é o caminho dentro da pasta da máquina: `notify`, `shop-admin/nestjs`
                 let group = f.trim_start_matches(&format!("{dir}/")).trim_end_matches(".yaml").trim_end_matches(".yml").to_string();
                 let entry = vars.entry(id.clone()).or_insert_with(|| {
                     order.push(id.clone());
