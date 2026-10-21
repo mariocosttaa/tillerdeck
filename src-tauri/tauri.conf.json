@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Ansible Mario",
-  "version": "2.0.0",
-  "identifier": "pt.solo.ansiblemario",
+  "productName": "Tillerdeck",
+  "version": "2.1.0",
+  "identifier": "pt.solo.tillerdeck",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Ansible Mario",
+        "title": "Tillerdeck",
         "width": 1440,
         "height": 900,
         "minWidth": 1100,
