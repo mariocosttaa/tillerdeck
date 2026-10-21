@@ -1,46 +1,73 @@
 {
   "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
-  "version": 2,
-  "name": "Demo",
-  "template": "makefile-convention",
   "environments": [
     {
-      "id": "staging",
-      "label": "Staging",
-      "inventory": "inventories/staging.ini",
-      "release": "releases/staging.yml",
       "color": "staging",
-      "protected": false
+      "id": "staging",
+      "inventory": "inventories/staging.ini",
+      "label": "Staging",
+      "protected": false,
+      "release": "releases/staging.yml"
     },
     {
-      "id": "production",
-      "label": "Produção",
-      "inventory": "inventories/production.ini",
-      "release": "releases/production.yml",
       "color": "production",
-      "protected": true
+      "id": "production",
+      "inventory": "inventories/production.ini",
+      "label": "Production",
+      "protected": true,
+      "release": "releases/production.yml"
     }
   ],
-  "promotion": [
+  "name": "Demo",
+  "operations": [
     {
-      "from": "staging",
-      "to": "production"
+      "action": {
+        "make": "deploy-backup-{env}"
+      },
+      "description": "the backup service · 30-backup",
+      "destructive": false,
+      "group": "backup",
+      "id": "deploy-backup",
+      "label": "Install backup"
+    },
+    {
+      "action": {
+        "make": "restore-{env}"
+      },
+      "description": "rehearse a restore on staging · SNAPSHOT=latest SCOPE=all|db|storage",
+      "destructive": true,
+      "group": "backup",
+      "id": "restore",
+      "label": "Restore"
+    },
+    {
+      "action": {
+        "make": "provision-system-{env}"
+      },
+      "description": "system, swap and Docker · 01-prepare-machine",
+      "destructive": false,
+      "group": "machine",
+      "id": "provision-system",
+      "label": "Provision system"
+    },
+    {
+      "action": {
+        "make": "ping-{env}"
+      },
+      "description": "does the machine answer?",
+      "destructive": false,
+      "group": "verify",
+      "id": "ping",
+      "label": "Ping"
     }
   ],
   "products": [
     {
+      "description": "the example app",
       "id": "demo",
       "label": "Demo",
-      "description": "the example app",
       "services": [
         {
-          "id": "api",
-          "label": "demo-api",
-          "kind": "nestjs",
-          "releaseKey": "api_tag",
-          "image": "demo-api",
-          "perEnvImage": false,
-          "container": "demo-api",
           "actions": {
             "deploy": {
               "make": "deploy-demo-nestjs-{env}"
@@ -48,16 +75,20 @@
             "migrate": {
               "make": "run-migrations-demo-nestjs-{env}"
             }
+          },
+          "container": "demo-api",
+          "id": "api",
+          "image": "demo-api",
+          "kind": "nestjs",
+          "label": "demo-api",
+          "perEnvImage": false,
+          "releaseKey": "api_tag",
+          "versions": {
+            "source": "registry",
+            "tagFormat": "{version}-{commit}-{build}"
           }
         },
         {
-          "id": "app",
-          "label": "demo-web",
-          "kind": "nextjs",
-          "releaseKey": "app_tag",
-          "image": "demo-web",
-          "perEnvImage": true,
-          "container": "demo-web",
           "actions": {
             "deploy": {
               "make": "deploy-demo-nextjs-{env}"
@@ -68,87 +99,67 @@
             "maintenanceOn": {
               "make": "maintenance-on-demo-nextjs-{env}"
             }
+          },
+          "container": "demo-web",
+          "id": "app",
+          "image": "demo-web",
+          "kind": "nextjs",
+          "label": "demo-web",
+          "perEnvImage": true,
+          "releaseKey": "app_tag",
+          "versions": {
+            "source": "registry",
+            "tagFormat": "{version}-{env}-{commit}-{build}"
           }
         },
         {
-          "id": "nginx",
-          "label": "nginx",
-          "kind": "nginx",
-          "perEnvImage": false,
-          "description": "nginx in front of the API",
           "actions": {
             "deploy": {
               "make": "deploy-demo-nginx-{env}"
             }
-          }
+          },
+          "description": "nginx in front of the API",
+          "id": "nginx",
+          "kind": "nginx",
+          "label": "nginx",
+          "perEnvImage": false
         },
         {
-          "id": "postgres",
-          "label": "Postgres",
-          "kind": "postgres",
-          "perEnvImage": false,
-          "description": "the database",
           "actions": {
             "deploy": {
               "make": "deploy-demo-postgres-{env}"
             }
-          }
+          },
+          "description": "the database",
+          "id": "postgres",
+          "kind": "postgres",
+          "label": "Postgres",
+          "perEnvImage": false
         },
         {
-          "id": "redis",
-          "label": "Redis",
-          "kind": "redis",
-          "perEnvImage": false,
-          "description": "the job queue",
           "actions": {
             "deploy": {
               "make": "deploy-demo-redis-{env}"
             }
-          }
+          },
+          "description": "the job queue",
+          "id": "redis",
+          "kind": "redis",
+          "label": "Redis",
+          "perEnvImage": false
         }
       ]
     }
   ],
-  "operations": [
+  "promotion": [
     {
-      "id": "deploy-backup",
-      "label": "Instalar backup",
-      "group": "backup",
-      "description": "the backup service · 30-backup",
-      "action": {
-        "make": "deploy-backup-{env}"
-      },
-      "destructive": false
-    },
-    {
-      "id": "restore",
-      "label": "Restaurar",
-      "group": "backup",
-      "description": "rehearse a restore on staging · SNAPSHOT=latest SCOPE=all|db|storage",
-      "action": {
-        "make": "restore-{env}"
-      },
-      "destructive": true
-    },
-    {
-      "id": "provision-system",
-      "label": "Provisionar sistema",
-      "group": "machine",
-      "description": "system, swap and Docker · 01-prepare-machine",
-      "action": {
-        "make": "provision-system-{env}"
-      },
-      "destructive": false
-    },
-    {
-      "id": "ping",
-      "label": "Ping",
-      "group": "verify",
-      "description": "does the machine answer?",
-      "action": {
-        "make": "ping-{env}"
-      },
-      "destructive": false
+      "from": "staging",
+      "to": "production"
     }
-  ]
+  ],
+  "template": "makefile-convention",
+  "version": 2,
+  "registry": {
+    "url": "https://registry.example.com"
+  }
 }
