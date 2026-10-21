@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CircleCheck, FileCode2, KeyRound, Plus, RotateCcw, Save, Trash2, TriangleAlert, Wand2, X } from "lucide-react";
-import { api, errorText, type Action, type EnvDef, type Manifest, type Operation, type Product, type Service, type TemplateReport, type Variable } from "../../api";
+import { api, errorText, type Action, type EnvDef, type Manifest, type Operation, type Product, type Service, type TemplateReport, type Variable, type Versions } from "../../api";
 import { useWs } from "../context";
 import { ENV_COLOR } from "../lib";
 import { Chips, EnvDot, KINDS, Modal, Select, TechIcon, Tint, Toggle, techLabel, type Opt } from "../ui";
@@ -266,6 +266,48 @@ function ActionEditor({ name, a, tokens, onChange }: { name: string; a?: Action;
       {mode !== "none" && tokens.length > 1 ? (
         <Chips options={tokens.map((x) => ({ value: x, label: x }))} value={a!.envs?.length ? a!.envs : tokens} onChange={(v) => onChange({ ...a, envs: v.length === tokens.length ? undefined : v })} />
       ) : <span />}
+      {mode !== "none" && (name === "migrate" || name === "seed") && (
+        <label className="flex items-center gap-2 text-[12px] text-fg-2 md:col-start-2 md:col-end-5">
+          <Toggle on={!!a!.includesDeploy} onChange={(v) => onChange({ ...a, includesDeploy: v || undefined })} />
+          {t("It also deploys (installs the release version) — so “Deploy + migrations” runs only this")}
+        </label>
+      )}
+    </div>
+  );
+}
+
+/** De onde vêm as versões que o deploy deixa escolher (e a página das builds). */
+function VersionsEditor({ s, onChange }: { s: Service; onChange: (v?: Versions) => void }) {
+  const v = s.versions;
+  const src = v?.source ?? (s.image ? "registry" : "none");
+  const set = (patch: Partial<Versions>) => onChange({ source: src as Versions["source"], ...v, ...patch });
+  return (
+    <div className="space-y-2">
+      <p className="sec-h">{t("Versions to choose from when deploying")}</p>
+      <div className="grid gap-3 md:grid-cols-3">
+        <Field label={t("Source")}>
+          <Select value={src} onChange={(x) => (x === "none" && !s.image ? onChange(undefined) : set({ source: x as Versions["source"] }))}
+            options={[{ value: "registry", label: t("Registry builds (image tags)") }, { value: "git", label: t("Git commits") }, { value: "none", label: t("None — keep the release version") }]} />
+        </Field>
+        {src === "registry" && (
+          <Field label={t("Tag format")} className="md:col-span-2">
+            <input className="field font-mono" placeholder="{version}-{commit}-{build}" value={v?.tagFormat ?? ""} onChange={(e) => set({ tagFormat: e.target.value || undefined })} spellCheck={false} />
+          </Field>
+        )}
+        {src === "git" && (
+          <>
+            <Field label={t("Repository (relative to the project)")}><input className="field font-mono" placeholder="../my-api" value={v?.repo ?? ""} onChange={(e) => set({ repo: e.target.value || undefined })} spellCheck={false} /></Field>
+            <Field label={t("Branch")}><input className="field font-mono" placeholder="main" value={v?.branch ?? ""} onChange={(e) => set({ branch: e.target.value || undefined })} spellCheck={false} /></Field>
+            <Field label={t("Written to the release as")}>
+              <Select value={v?.commitFormat ?? "short"} onChange={(x) => set({ commitFormat: x as "short" | "full" })} options={[{ value: "short", label: t("short commit (7)") }, { value: "full", label: t("full commit (40)") }]} />
+            </Field>
+          </>
+        )}
+        {src !== "none" && (
+          <Field label={t("How many to show")}><input className="field" type="number" min={1} max={100} value={v?.limit ?? 20} onChange={(e) => set({ limit: Number(e.target.value) || undefined })} /></Field>
+        )}
+      </div>
+      {src === "registry" && <p className="text-[11.5px] text-fg-3">{t("Fields: {version} {env} {commit} {build}. Only tags that match are listed; with {env}, only the server's own tags. Dates and commits from the image labels win over the tag.")}</p>}
     </div>
   );
 }
@@ -343,6 +385,7 @@ function Products({ m, set }: { m: Manifest; set: (m: Manifest) => void }) {
                           <Field label={t("Description")}><input className="field" value={s.description ?? ""} onChange={(e) => updS(pi, si, { description: e.target.value || undefined })} /></Field>
                         </div>
                         <label className="flex items-center gap-2 text-[12.5px]"><Toggle on={!!s.perEnvImage} onChange={(v) => updS(pi, si, { perEnvImage: v })} />{t("The tag carries the environment (-staging-): promoting asks the registry")}</label>
+                        <VersionsEditor s={s} onChange={(versions) => updS(pi, si, { versions })} />
                         <div className="space-y-2">
                           <p className="sec-h">{t("Buttons")}</p>
                           {ACTIONS.map((a) => (
