@@ -53,7 +53,8 @@ export async function loadChoices(ws: Ws, p: Product, s: Service, server: EnvDef
   } else {
     const url = ws.manifest.registry?.url;
     if (!url || !s.image) throw new Error(t("set the registry and image in Settings"));
-    const env = v.tagFormat?.includes("{env}") ? where(p, server).token : undefined;
+    // uma imagem por ambiente: só as tags deste servidor, com ou sem formato
+    const env = s.perEnvImage || v.tagFormat?.includes("{env}") ? where(p, server).token : undefined;
     const builds = await api.registryBuilds(url, s.image, v.tagFormat, env, v.limit);
     list = builds.map((b) => ({ value: b.tag, version: b.version, commit: b.commit?.slice(0, 7), date: b.created, size: b.size }));
   }

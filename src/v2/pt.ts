@@ -397,6 +397,8 @@ export const PT: Record<string, string> = {
   "Releases": "Releases",
   "Vault": "Vault",
   // builds e deploy com versão
+  "deploys and migrates": "faz deploy e migra",
+  "deploys, migrates and seeds": "faz deploy, migra e semeia",
   "Ahead of {env}": "À frente de {env}",
   "Branch": "Ramo",
   "Builds": "Builds",

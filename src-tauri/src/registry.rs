@@ -110,6 +110,12 @@ struct Client {
 
 impl Client {
     fn new(url: &str) -> Client {
+        Client::with(url, credentials(&host_of(url)), None)
+    }
+
+    /// Outra ligação com as mesmas credenciais e a mesma autorização já
+    /// obtida: o Keychain só se consulta uma vez.
+    fn with(url: &str, creds: Option<(String, String)>, auth: Option<String>) -> Client {
         let host = host_of(url);
         Client {
             agent: ureq::AgentBuilder::new()
@@ -117,9 +123,9 @@ impl Client {
                 .redirect_auth_headers(ureq::RedirectAuthHeaders::SameHost)
                 .build(),
             base: format!("https://{host}"),
-            creds: credentials(&host),
+            creds,
             host,
-            auth: None,
+            auth,
         }
     }
 
@@ -233,6 +239,55 @@ fn version_key(v: &str) -> Vec<u64> {
     v.split(|c: char| !c.is_ascii_digit()).filter(|x| !x.is_empty()).take(4).map(|x| x.parse().unwrap_or(0)).collect()
 }
 
+/// As tags que contam, das mais altas para as mais baixas: as que batem com o
+/// formato e, com um ambiente, só as desse ambiente — pelo campo `{env}` do
+/// formato ou, sem ele, pelo `-<env>-` no nome. Uma imagem por ambiente
+/// nunca mostra a tag de staging na produção.
+pub fn candidates(tags: Vec<String>, format: Option<&str>, env: Option<&str>) -> Vec<(String, std::collections::BTreeMap<String, String>)> {
+    let mut out: Vec<(String, std::collections::BTreeMap<String, String>)> = tags
+        .into_iter()
+        .filter(|t| t != "latest")
+        .filter_map(|t| {
+            let parts = match format {
+                Some(f) => parse_tag(f, &t)?,
+                None => Default::default(),
+            };
+            if let Some(e) = env {
+                let ok = match parts.get("env") {
+                    Some(te) => te == e,
+                    None => t.contains(&format!("-{e}-")),
+                };
+                if !ok {
+                    return None;
+                }
+            }
+            Some((t, parts))
+        })
+        .collect();
+    out.sort_by(|a, b| version_key(b.1.get("version").unwrap_or(&b.0)).cmp(&version_key(a.1.get("version").unwrap_or(&a.0))).then(b.0.cmp(&a.0)));
+    out
+}
+
+/// O que interessa de um manifesto de imagem (já escolhido no índice) e do blob de configuração.
+pub fn read_details(b: &mut Build, manifest: &serde_json::Value, config: Option<&serde_json::Value>) {
+    b.size = manifest.get("layers").and_then(|l| l.as_array()).map(|l| l.iter().filter_map(|x| x.get("size").and_then(|s| s.as_u64())).sum());
+    if let Some(v) = config {
+        b.created = v.get("created").and_then(|x| x.as_str()).map(String::from);
+        let labels = v.pointer("/config/Labels");
+        let label = |k: &str| labels.and_then(|l| l.get(k)).and_then(|x| x.as_str()).filter(|x| !x.is_empty()).map(String::from);
+        b.version = label("org.opencontainers.image.version");
+        b.commit = label("org.opencontainers.image.revision");
+    }
+}
+
+/// Num índice multi-plataforma, o manifesto de linux/amd64 (ou o primeiro que não seja `unknown`).
+pub fn pick_platform(list: &[serde_json::Value]) -> Option<String> {
+    list.iter()
+        .find(|e| e.pointer("/platform/os").and_then(|x| x.as_str()) == Some("linux") && e.pointer("/platform/architecture").and_then(|x| x.as_str()) == Some("amd64"))
+        .or_else(|| list.iter().find(|e| e.pointer("/platform/os").and_then(|x| x.as_str()) != Some("unknown")))
+        .and_then(|e| e.get("digest").and_then(|x| x.as_str()).map(String::from))
+}
+
 /// Lê data, tamanho e etiquetas de uma tag: manifesto (ou índice, de onde
 /// se escolhe linux/amd64) e depois o blob de configuração.
 fn inspect(c: &mut Client, image: &str, tag: &str) -> Result<Build, String> {
@@ -240,24 +295,15 @@ fn inspect(c: &mut Client, image: &str, tag: &str) -> Result<Build, String> {
     let digest = resp.header("Docker-Content-Digest").map(String::from);
     let mut m: serde_json::Value = resp.into_json().map_err(|e| e.to_string())?;
     if let Some(list) = m.get("manifests").and_then(|x| x.as_array()).cloned() {
-        let pick = list
-            .iter()
-            .find(|e| e.pointer("/platform/os").and_then(|x| x.as_str()) == Some("linux") && e.pointer("/platform/architecture").and_then(|x| x.as_str()) == Some("amd64"))
-            .or_else(|| list.iter().find(|e| e.pointer("/platform/os").and_then(|x| x.as_str()) != Some("unknown")))
-            .ok_or("índice sem manifestos")?;
-        let d = pick.get("digest").and_then(|x| x.as_str()).ok_or("índice sem digest")?;
+        let d = pick_platform(&list).ok_or("índice sem manifestos")?;
         m = c.get(&format!("{}/v2/{image}/manifests/{d}", c.base), Some(MANIFEST_TYPES), image)?.into_json().map_err(|e| e.to_string())?;
     }
-    let size = m.get("layers").and_then(|l| l.as_array()).map(|l| l.iter().filter_map(|x| x.get("size").and_then(|s| s.as_u64())).sum());
-    let mut b = Build { tag: tag.to_string(), digest, size, ..Default::default() };
-    if let Some(cfg) = m.pointer("/config/digest").and_then(|x| x.as_str()) {
-        let v: serde_json::Value = c.get(&format!("{}/v2/{image}/blobs/{cfg}", c.base), None, image)?.into_json().map_err(|e| e.to_string())?;
-        b.created = v.get("created").and_then(|x| x.as_str()).map(String::from);
-        let labels = v.pointer("/config/Labels");
-        let label = |k: &str| labels.and_then(|l| l.get(k)).and_then(|x| x.as_str()).filter(|x| !x.is_empty()).map(String::from);
-        b.version = label("org.opencontainers.image.version");
-        b.commit = label("org.opencontainers.image.revision");
-    }
+    let config = match m.pointer("/config/digest").and_then(|x| x.as_str()) {
+        Some(cfg) => Some(c.get(&format!("{}/v2/{image}/blobs/{cfg}", c.base), None, image)?.into_json::<serde_json::Value>().map_err(|e| e.to_string())?),
+        None => None,
+    };
+    let mut b = Build { tag: tag.to_string(), digest, ..Default::default() };
+    read_details(&mut b, &m, config.as_ref());
     Ok(b)
 }
 
@@ -270,39 +316,37 @@ pub fn builds(url: &str, image: &str, format: Option<&str>, env: Option<&str>, l
         std::fs::read_to_string(cache).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
     let prefix = format!("{}/{image}:", c.host);
 
-    // filtrar pelo formato (e pelo ambiente, quando a tag o traz) e ordenar pela versão
-    let mut cands: Vec<(String, std::collections::BTreeMap<String, String>)> = tags
-        .into_iter()
-        .filter(|t| t != "latest")
-        .filter_map(|t| {
-            let parts = match format {
-                Some(f) => parse_tag(f, &t)?,
-                None => Default::default(),
-            };
-            if let (Some(e), Some(te)) = (env, parts.get("env")) {
-                if e != te { return None; }
-            }
-            Some((t, parts))
-        })
-        .collect();
-    cands.sort_by(|a, b| version_key(b.1.get("version").unwrap_or(&b.0)).cmp(&version_key(a.1.get("version").unwrap_or(&a.0))).then(b.0.cmp(&a.0)));
-    cands.truncate(limit * 2);
+    let mut cands = candidates(tags, format, env);
+    // as mais altas pela versão; várias builds da mesma versão cabem na janela
+    cands.truncate((limit * 6).max(60));
+
+    // as tags novas inspeccionam-se em paralelo (cada fio com a sua ligação)
+    let missing: Vec<String> = cands.iter().map(|(t, _)| t.clone()).filter(|t| !known.contains_key(&format!("{prefix}{t}"))).collect();
+    let changed = !missing.is_empty();
+    if changed {
+        let (creds, auth) = (c.creds.clone(), c.auth.clone());
+        let chunk = missing.len().div_ceil(6).max(1);
+        let found: Vec<Build> = std::thread::scope(|sc| {
+            let handles: Vec<_> = missing
+                .chunks(chunk)
+                .map(|part| {
+                    let (creds, auth) = (creds.clone(), auth.clone());
+                    sc.spawn(move || {
+                        let mut c = Client::with(url, creds, auth);
+                        part.iter().filter_map(|t| inspect(&mut c, image, t).ok()).collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+        });
+        for b in found {
+            known.insert(format!("{prefix}{}", b.tag), b);
+        }
+    }
 
     let mut out = Vec::new();
-    let mut changed = false;
     for (tag, parts) in cands {
-        let key = format!("{prefix}{tag}");
-        let mut b = match known.get(&key) {
-            Some(b) => b.clone(),
-            None => match inspect(&mut c, image, &tag) {
-                Ok(b) => {
-                    known.insert(key, b.clone());
-                    changed = true;
-                    b
-                }
-                Err(_) => Build { tag: tag.clone(), ..Default::default() },
-            },
-        };
+        let mut b = known.get(&format!("{prefix}{tag}")).cloned().unwrap_or(Build { tag: tag.clone(), ..Default::default() });
         if b.version.is_none() { b.version = parts.get("version").cloned(); }
         if b.commit.is_none() { b.commit = parts.get("commit").cloned(); }
         b.env = parts.get("env").cloned();
@@ -371,6 +415,41 @@ mod tests {
         assert!(parse_tag("{version}-{commit}-{build}", "latest").is_none());
         assert!(parse_tag("v{version}", "2.3.4").is_none());
         assert_eq!(parse_tag("{commit}", "abc1234").unwrap()["commit"], "abc1234");
+    }
+
+    #[test]
+    fn per_env_images_never_show_other_envs() {
+        let tags: Vec<String> = ["1.17.0-staging-4be19d2-0a41dcef", "1.17.0-production-4be19d2-91c04e2b", "1.16.2-testes-c007238-b1cc22e0", "latest"].iter().map(|s| s.to_string()).collect();
+        // sem formato (manifesto antigo): pelo nome
+        let c = candidates(tags.clone(), None, Some("production"));
+        assert_eq!(c.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), vec!["1.17.0-production-4be19d2-91c04e2b"]);
+        // com formato: pelo campo
+        let c = candidates(tags.clone(), Some("{version}-{env}-{commit}-{build}"), Some("testes"));
+        assert_eq!(c.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), vec!["1.16.2-testes-c007238-b1cc22e0"]);
+        // sem ambiente: todas menos latest, da versão mais alta para a mais baixa
+        let c = candidates(tags, None, None);
+        assert_eq!(c.len(), 3);
+        assert!(c[0].0.starts_with("1.17.0"));
+    }
+
+    #[test]
+    fn reads_manifest_and_config() {
+        let index: serde_json::Value = serde_json::json!({ "manifests": [
+            { "digest": "sha256:arm", "platform": { "os": "linux", "architecture": "arm64" } },
+            { "digest": "sha256:amd", "platform": { "os": "linux", "architecture": "amd64" } },
+            { "digest": "sha256:att", "platform": { "os": "unknown", "architecture": "unknown" } } ] });
+        assert_eq!(pick_platform(index["manifests"].as_array().unwrap()).as_deref(), Some("sha256:amd"));
+        let only_att = serde_json::json!([{ "digest": "sha256:att", "platform": { "os": "unknown" } }]);
+        assert_eq!(pick_platform(only_att.as_array().unwrap()), None);
+
+        let manifest = serde_json::json!({ "config": { "digest": "sha256:cfg" }, "layers": [{ "size": 100 }, { "size": 23 }] });
+        let config = serde_json::json!({ "created": "2026-10-20T10:00:00Z", "config": { "Labels": {
+            "org.opencontainers.image.version": "1.20.0", "org.opencontainers.image.revision": "124d06b9f", "other": "x" } } });
+        let mut b = Build { tag: "1.20.0-124d06b-c2e5b81f".into(), ..Default::default() };
+        read_details(&mut b, &manifest, Some(&config));
+        assert_eq!(b.size, Some(123));
+        assert_eq!(b.created.as_deref(), Some("2026-10-20T10:00:00Z"));
+        assert_eq!((b.version.as_deref(), b.commit.as_deref()), (Some("1.20.0"), Some("124d06b9f")));
     }
 
     #[test]

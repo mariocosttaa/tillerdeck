@@ -288,7 +288,7 @@ function Inspector({ p, s }: { p: Product; s: Service }) {
                 <span className="grid size-8 place-items-center rounded-[9px] bg-raise-2">{meta.icon}</span>
                 {current && <span className="text-[11px] text-fg-3">{t("current")}</span>}
               </span>
-              <span><span className="block text-[13px] font-medium">{meta.label}</span><span className="block text-[11.5px] text-fg-3">{ok ? meta.sub : t("not available on {env}", { env: env.label })}</span></span>
+              <span><span className="block text-[13px] font-medium">{meta.label}</span><span className="block text-[11.5px] text-fg-3">{!ok ? t("not available on {env}", { env: env.label }) : s.actions[a]?.includesDeploy ? (a === "seed" ? t("deploys, migrates and seeds") : t("deploys and migrates")) : meta.sub}</span></span>
             </button>
           );
         })}
