@@ -127,6 +127,10 @@ export default function Workspace({ initial }: { initial: Project }) {
   useEffect(() => {
     api.setDirty(dirty.size > 0).catch(() => {});
   }, [dirty.size]);
+  // Ao desmontar (outro projecto), já não há nada por gravar aqui.
+  useEffect(() => () => {
+    api.setDirty(false).catch(() => {});
+  }, []);
   const update = (path: string, patch: Partial<OpenFile>) => setFiles((fs) => fs.map((f) => (f.path === path ? { ...f, ...patch } : f)));
 
   async function save(f: OpenFile, force = false) {

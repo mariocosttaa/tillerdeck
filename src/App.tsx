@@ -42,6 +42,10 @@ export default function App() {
   const [makeVars, setMakeVars] = useState<{ name: string; value: string }[]>([]);
   const [quit, setQuit] = useState<{ running: number; dirty: boolean } | null>(null);
   const [skipWizard, setSkipWizard] = useState(false);
+  const [filesOpened, setFilesOpened] = useState(false);
+  useEffect(() => {
+    if (page === "ficheiros") setFilesOpened(true);
+  }, [page]);
 
   const say = useCallback((text: string, bad?: boolean) => setToast({ text, bad }), []);
 
@@ -52,6 +56,7 @@ export default function App() {
     setPage("servicos");
     setSelected(null);
     setSkipWizard(false);
+    setFilesOpened(false);
     setEnvId(localStorage.getItem(`ansible-mario.env.${p.root}`));
   }, [proj.load]);
 
@@ -210,9 +215,11 @@ export default function App() {
         {page === "maquina" && <Machine />}
         {page === "execucoes" && <Runs />}
         {page === "definicoes" && <Settings />}
-        {page === "ficheiros" && (
-          <div className="relative min-w-0 flex-1">
-            <Workspace initial={ws.project} />
+        {/* Fica montado depois da primeira visita: sair dos Ficheiros não
+            pode deitar fora os separadores nem as alterações por gravar. */}
+        {filesOpened && (
+          <div className={page === "ficheiros" ? "relative min-w-0 flex-1" : "hidden"}>
+            <Workspace key={ws.project.root} initial={ws.project} />
           </div>
         )}
         {focusedRun && !logOpen && <RunCard run={focusedRun} onLog={() => setLogOpen(true)} onClose={() => setFocus(null)} />}
