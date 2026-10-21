@@ -217,10 +217,11 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
             {at && <span className="text-[11.5px] text-fg-3">{relTime(new Date(at).toISOString())}</span>}
             {src && <button className="ib !size-7" title={t("Refresh")} onClick={() => load(true)}><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>}
           </div>
-          <div className="scroll max-h-[260px] space-y-0.5 overflow-auto rounded-xl bg-panel p-1.5 ring-1 ring-line">
-            {current && !(list ?? []).some((c) => c.value === current) && row({ value: current, title: t("the version in the release") })}
+          <div className="scroll max-h-[min(260px,34vh)] space-y-0.5 overflow-auto rounded-xl bg-panel p-1.5 ring-1 ring-line">
+            {/* a instalada fica sempre em cima: é o "não mudar nada" */}
+            {current && row((list ?? []).find((c) => c.value === current) ?? { value: current, title: t("the version in the release") })}
             {req.preset && req.preset !== current && !(list ?? []).some((c) => c.value === req.preset) && row({ value: req.preset, title: t("chosen in Builds") })}
-            {(list ?? []).map(row)}
+            {(list ?? []).filter((c) => c.value !== current).map(row)}
             {loading && !list && <p className="px-3 py-4 text-center text-[12.5px] text-fg-3">{src?.source === "git" ? t("reading the commits…") : t("asking the registry…")}</p>}
             {error && <p className="px-3 py-3 text-[12.5px] text-warn selectable">{error}</p>}
             {!src && <p className="px-3 py-3 text-[12.5px] text-fg-3">{t("No version source for this service — set a registry or a git repository in Settings, or type the version.")}</p>}

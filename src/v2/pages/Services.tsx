@@ -164,7 +164,13 @@ function Status({ p, s, differs }: { p: Product; s: Service; differs: boolean })
   if (ms.closed) return <span title={ms.source === "action" ? t("from the last action run here") : t("from the inventory")}><Tint color="var(--warn)"><Construction size={12} />{t("Closed")}</Tint></span>;
   if (last && last.endedAt && last.exitCode !== 0 && !last.cancelled) return <Tint color="var(--danger)"><CircleX size={12} />{t("Failed")}</Tint>;
   if (differs && promo?.from === env.id) return <Tint color="var(--w-accent)"><Sparkles size={12} />{t("Ready to promote")}</Tint>;
-  if (differs && promo?.to === env.id) return <Tint color="var(--env-staging)"><TriangleAlert size={12} />{t("Behind")}</Tint>;
+  if (differs && promo?.to === env.id) {
+    // a produção pode estar À FRENTE (um deploy feito com versão escolhida)
+    const from = ws.manifest.environments.find((e) => e.id === promo.from);
+    const d = from ? cmpVersion(versionOf(ws.state.releases, where(p, from), s), versionOf(ws.state.releases, where(p, env), s)) : null;
+    if (d !== null && d < 0) return <Tint color="var(--ok)"><Sparkles size={12} />{t("Ahead of {env}", { env: from!.label })}</Tint>;
+    return <Tint color="var(--env-staging)"><TriangleAlert size={12} />{t("Behind")}</Tint>;
+  }
   return <span className="pill bg-raise-2 text-fg-2"><span className="size-1.5 rounded-full bg-ok" />{t("Stable")}</span>;
 }
 

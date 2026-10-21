@@ -98,7 +98,7 @@ export function versionOf(releases: Record<string, Record<string, string>>, w: W
  */
 export function maintenanceState(history: HistoryEntry[], root: string, server: string, svc: string, flag: boolean | undefined) {
   const last = history.find(
-    (h) => h.root === root && h.meta?.env === server && h.meta?.service === svc && h.endedAt && h.exitCode === 0 && ["deploy", "maintenanceOn", "maintenanceOff"].includes(h.meta?.action ?? ""),
+    (h) => h.root === root && h.meta?.env === server && h.meta?.service === svc && h.endedAt && h.exitCode === 0 && (installs(h) || ["maintenanceOn", "maintenanceOff"].includes(h.meta?.action ?? "")),
   );
   if (last?.meta?.action === "maintenanceOn") return { closed: true, source: "action" as const, at: last.endedAt };
   if (last?.meta?.action === "maintenanceOff") return { closed: false, source: "action" as const, at: last.endedAt };
@@ -123,10 +123,13 @@ export function duration(e: HistoryEntry): string {
   return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
 }
 
-/** A última corrida com sucesso de uma acção sobre um serviço num ambiente. */
+/** Uma corrida que instalou uma versão: um deploy, ou um migrar que também faz deploy (traz `version`). */
+const installs = (h: HistoryEntry) => h.meta?.action === "deploy" || !!h.meta?.version;
+
+/** A última corrida de uma acção sobre um serviço num ambiente ("deploy" conta tudo o que instalou). */
 export function lastRun(history: HistoryEntry[], root: string, env: string, service: string, action?: string) {
   return history.find(
-    (h) => h.root === root && h.meta?.env === env && h.meta?.service === service && (!action || h.meta?.action === action) && h.endedAt,
+    (h) => h.root === root && h.meta?.env === env && h.meta?.service === service && (!action || h.meta?.action === action || (action === "deploy" && installs(h))) && h.endedAt,
   );
 }
 

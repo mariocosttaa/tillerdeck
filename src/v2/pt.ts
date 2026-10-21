@@ -397,6 +397,7 @@ export const PT: Record<string, string> = {
   "Releases": "Releases",
   "Vault": "Vault",
   // builds e deploy com versão
+  "Ahead of {env}": "À frente de {env}",
   "Branch": "Ramo",
   "Builds": "Builds",
   "Built": "Construída",
