@@ -304,7 +304,7 @@ pub fn makefile_convention(root: &Path) -> Report {
             if action == "deploy" && name_like(seg) && s.container.is_none() {
                 s.label = seg.to_string();
                 s.container = Some(seg.to_string());
-            } else if action == "deploy" && !seg.is_empty() && s.description.is_none() && !name_like(seg) {
+            } else if action == "deploy" && !seg.is_empty() && s.description.is_none() && s.container.is_none() && !name_like(seg) {
                 s.description = Some(seg.to_string());
             }
             let base = t.name.trim_end_matches(&format!("-{}", p.env.clone().unwrap_or_default())).to_string();
