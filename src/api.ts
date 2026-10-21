@@ -147,6 +147,7 @@ export const api = {
     invoke<{ prefix: string; candidates: string[] } | null>("registry_match", { url, image, fromTag, from, to }),
   releaseCommitMany: (root: string, files: string[], message: string) => invoke<string>("release_commit_many", { root, files, message }),
   gitRemote: (root: string) => invoke<GitRemote>("git_remote", { root }),
+  releasePublish: (root: string, files: string[], message: string, branch: string) => invoke<string>("release_publish", { root, files, message, branch }),
   gitPush: (root: string, branch: string) => invoke<string>("git_push", { root, branch }),
   registryBuilds: (url: string, image: string, format: string | undefined, env: string | undefined, limit?: number) =>
     invoke<Build[]>("registry_builds", { url, image, format: format || null, env: env || null, limit: limit ?? null }),

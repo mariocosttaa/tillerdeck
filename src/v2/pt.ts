@@ -449,6 +449,9 @@ export const PT: Record<string, string> = {
   "{s} done on {env}": "{s} feito em {env}",
   "{s} failed — the release line went back to {v}.": "{s} falhou — a linha do release voltou a {v}.",
   // preferências e git
+  "Commit and push {out} — {msg}": "Commit e push {out} — {msg}",
+  "Nothing was pushed: {e}": "Nada foi enviado: {e}",
+  "You're on {cur}: the commit goes straight to {b} without switching branch. Your branch and unsaved files stay as they are; only the changed release lines go.": "Estás em {cur}: o commit vai direto para {b} sem mudar de branch. A tua branch e o que tens por gravar ficam como estão; só seguem as linhas do release que mudaram.",
   "About": "Sobre",
   "After a deploy with a new version": "Depois de um deploy com versão nova",
   "App version": "Versão da app",

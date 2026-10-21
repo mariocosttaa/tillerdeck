@@ -159,7 +159,7 @@ export function GitSettings() {
               onChange={(v) => set({ ...g, branch: v })}
               options={[{ value: "", label: t("the current branch ({b})", { b: r?.branch ?? "—" }) }, ...(r?.branches ?? []).map((b) => ({ value: b, label: b }))]}
             />
-            {wrongBranch && <p className="mt-2 text-[12.5px] text-warn">{t("You're on {cur}, not {b}: commits stay local until you switch.", { cur: r!.branch!, b: g.branch })}</p>}
+            {wrongBranch && <p className="mt-2 text-[12.5px] text-fg-2">{t("You're on {cur}: the commit goes straight to {b} without switching branch. Your branch and unsaved files stay as they are; only the changed release lines go.", { cur: r!.branch!, b: g.branch })}</p>}
           </div>
         )}
         <p className="mt-3 text-[11.5px] text-fg-3">{t("Messages follow Conventional Commits, for example:")} <span className="font-mono text-fg-2">{commitMessage.deploy("shop-api", "1.4.0", "Production")}</span></p>

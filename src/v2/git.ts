@@ -54,16 +54,24 @@ export async function pushIfWanted(ws: Ws, force = false): Promise<boolean> {
   }
 }
 
-/** Commit de ficheiros de release e, se escolhido, push. */
+/**
+ * Commit de ficheiros de release. Com push: vai para a branch escolhida —
+ * se não for a actual, o commit faz-se sem checkout (a tua branch e o que
+ * tens por gravar ficam como estão) e leva só as chaves que mudaram.
+ */
 export async function commitReleases(ws: Ws, files: string[], message: string, push: boolean) {
   try {
-    const sha = await api.releaseCommitMany(ws.project.root, files, message);
-    ws.toast(t("Commit {sha} — {msg}", { sha, msg: message }));
+    if (push) {
+      const g = loadGit(ws.project.root);
+      const out = await api.releasePublish(ws.project.root, files, message, g.branch || ws.state.git.branch || "");
+      ws.toast(t("Commit and push {out} — {msg}", { out, msg: message }));
+    } else {
+      const sha = await api.releaseCommitMany(ws.project.root, files, message);
+      ws.toast(t("Commit {sha} — {msg}", { sha, msg: message }));
+    }
   } catch (e) {
-    ws.toast(t("The commit failed: {e}", { e: errorText(e) }), true);
-    return;
+    ws.toast(t(push ? "Nothing was pushed: {e}" : "The commit failed: {e}", { e: errorText(e) }), true);
   }
-  if (push) await pushIfWanted(ws, true);
   await ws.refresh();
 }
 
