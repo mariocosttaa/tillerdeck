@@ -38,7 +38,10 @@ export function cmpVersion(a?: string, b?: string): number | null {
     const d = Number(ma[i]) - Number(mb[i]);
     if (d) return d;
   }
-  return a === b ? 0 : null;
+  // Mesma versão: é a mesma coisa se for o mesmo commit — as tags que trazem
+  // o ambiente (`-staging-` / `-production-`) diferem no texto mas não no código.
+  const ca = commitOf(a), cb = commitOf(b);
+  return ca && cb ? (ca === cb ? 0 : null) : null;
 }
 
 export function actionEnvs(a: Action, m: Manifest): string[] {

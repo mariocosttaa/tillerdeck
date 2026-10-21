@@ -128,7 +128,7 @@ export function Promote() {
   const all: Item[] = useMemo(() => m.products.flatMap((p) => p.services.filter((s) => s.releaseKey).map((s) => ({ p, s }))), [m]);
   const rf = promo ? ws.state.releases[promo.from] ?? {} : {};
   const rt = promo ? ws.state.releases[promo.to] ?? {} : {};
-  const differs = all.filter(({ s }) => rf[s.releaseKey!] && rf[s.releaseKey!] !== rt[s.releaseKey!] && (cmpVersion(rf[s.releaseKey!], rt[s.releaseKey!]) ?? 1) !== 0);
+  const differs = all.filter(({ s }) => rf[s.releaseKey!] && cmpVersion(rf[s.releaseKey!], rt[s.releaseKey!]) !== 0);
   const same = all.filter((x) => !differs.includes(x));
   const sel = chosen ?? new Set(differs.filter(({ s }) => (cmpVersion(rf[s.releaseKey!], rt[s.releaseKey!]) ?? 1) > 0).map(({ p, s }) => serviceKey(p, s)));
 
