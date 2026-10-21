@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Bell, Box, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, Monitor, Moon, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2, Sun,
+  Bell, Box, Boxes, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, Monitor, Moon, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2, Sun,
 } from "lucide-react";
 import { useWs, type Page } from "./context";
 import { EnvDot, Select } from "./ui";
 import { cmpVersion, productOn, versionOf, where } from "./lib";
 import { relTime, t } from "./i18n";
 import type { Theme } from "./prefs";
+import { versionSource } from "./versions";
 
 const isMac = navigator.userAgent.includes("Mac");
 
@@ -59,6 +60,7 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
         <div className="scroll min-h-0 flex-1 overflow-auto">
           <div className="nav-h">{t("Operations")}</div>
           {nav("servicos", <LayoutGrid size={16} />, t("Services"))}
+          {m.products.some((p) => p.services.some((s) => versionSource(ws, s))) && nav("builds", <Boxes size={16} />, t("Builds"))}
           {promo && nav("promover", <GitCompareArrows size={16} />, t("Promote"), ahead > 0 && <span className="pill !h-5 !px-1.5 text-[11px] text-white" style={{ background: "var(--w-accent)" }}>{ahead}</span>)}
           {m.operations.some((o) => o.group === "backup") && nav("backups", <DatabaseBackup size={16} />, t("Backups"))}
           {nav("maquina", <ServerCog size={16} />, t("Machine"))}
