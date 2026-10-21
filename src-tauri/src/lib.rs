@@ -4,6 +4,7 @@ mod project;
 mod registry;
 mod releases;
 mod template;
+mod detect;
 mod runner;
 mod shell;
 mod vault;
@@ -131,6 +132,7 @@ struct AutoInfo {
     template: String,
     matched: usize,
     total: usize,
+    sources: Vec<String>,
 }
 
 #[tauri::command]
@@ -142,8 +144,8 @@ async fn project_state(root: String, lang: Option<String>) -> Result<ProjectStat
         let (manifest, manifest_error) = match manifest::load(&r) {
             Ok(Some(m)) => (Some(m), None),
             Ok(None) => {
-                let rep = template::best(&r, lang.as_deref().unwrap_or("en"));
-                auto = Some(AutoInfo { template: rep.template.clone(), matched: rep.matched, total: rep.total });
+                let rep = detect::auto(&r, lang.as_deref().unwrap_or("en"));
+                auto = Some(AutoInfo { template: rep.template.clone(), matched: rep.matched, total: rep.total, sources: rep.sources.clone() });
                 (Some(rep.manifest), None)
             }
             Err(e) => (None, Some(e)),
@@ -186,6 +188,7 @@ async fn template_report(root: String, template: String, lang: Option<String>) -
         let r = root_path(&root);
         let lang = lang.unwrap_or_else(|| "en".into());
         match template.as_str() {
+            "auto" => Ok(detect::auto(&r, &lang)),
             "makefile-convention" => Ok(template::makefile_convention(&r, &lang)),
             "playbooks" => Ok(template::playbooks_only(&r, &lang)),
             other => Err(format!("template desconhecido: {other}")),

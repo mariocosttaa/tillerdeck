@@ -21,7 +21,7 @@
     },
     "template": {
       "type": "string",
-      "description": "The template that generated this file (makefile-convention, playbooks)."
+      "description": "How this file was first made: auto (detected from the Makefile, playbooks and roles), makefile-convention or playbooks. Informative only."
     },
     "environments": {
       "type": "array",
