@@ -143,7 +143,15 @@ What the file describes, and what you can change in **Settings** (or the JSON ta
 
 Download from the [latest release](https://github.com/mariocosttaa/tillerdeck/releases/latest).
 
-**macOS (Apple Silicon)**
+**One line (macOS or Linux), no security warning:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/install.sh | sh
+```
+
+It downloads the latest release, checks its SHA-256, and installs it: `/Applications/Tillerdeck.app` on a Mac, `~/.local/bin/tillerdeck` on Linux. Read [`install.sh`](install.sh) first if you like.
+
+**macOS (Apple Silicon), by hand**
 
 1. Open `Tillerdeck-2.1.0-macos-arm64.dmg` (or the `.zip`) and drag **Tillerdeck.app** to `/Applications`.
 2. The app is not notarised by Apple yet, so the first open shows *"Apple could not verify Tillerdeck"*. Allow it once, either way:
