@@ -1,4 +1,4 @@
-# Demo Makefile, in the naming convention Ansible Mario recognises:
+# Demo Makefile, in the naming convention Tillerdeck recognises:
 #
 #     verb - product - technology - environment
 #     deploy-demo-nestjs-staging

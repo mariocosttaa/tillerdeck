@@ -1,4 +1,4 @@
-//! O `ansible-mario.json`: a descrição de um projecto que a app usa para
+//! O `tillerdeck.json`: a descrição de um projecto que a app usa para
 //! mostrar serviços, promoção, backups e máquina com botões.
 //!
 //! Vive na raiz do repositório de infra, ao lado do `ansible.cfg`, e vai com
@@ -10,8 +10,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-pub const FILE: &str = "ansible-mario.json";
-pub const SCHEMA: &str = "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json";
+pub const FILE: &str = "tillerdeck.json";
+/// O nome antigo, do tempo em que a app se chamava Ansible Mario. Não se lê:
+/// a app propõe renomeá-lo.
+pub const LEGACY_FILE: &str = "ansible-mario.json";
+
+pub const SCHEMA: &str = "https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/schema/v2.json";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
@@ -215,6 +219,20 @@ pub fn load(root: &Path) -> Result<Option<Manifest>, String> {
     serde_json::from_str(&text).map(Some).map_err(|e| format!("{FILE}: {e}"))
 }
 
+/// Renomeia o `ansible-mario.json` antigo para `tillerdeck.json`, sem tocar no conteúdo
+/// (o `$schema` passa a apontar para o novo endereço).
+pub fn adopt_legacy(root: &Path) -> Result<(), String> {
+    let old = root.join(LEGACY_FILE);
+    let new = root.join(FILE);
+    if new.exists() {
+        return Err(format!("{FILE} já existe"));
+    }
+    let text = fs::read_to_string(&old).map_err(|e| format!("{LEGACY_FILE}: {e}"))?;
+    let text = text.replace("mariocosttaa/ansible-mario/", "mariocosttaa/tillerdeck/");
+    fs::write(&new, text).map_err(|e| e.to_string())?;
+    fs::remove_file(&old).map_err(|e| e.to_string())
+}
+
 pub fn save(root: &Path, m: &Manifest) -> Result<(), String> {
     let mut text = serde_json::to_string_pretty(m).map_err(|e| e.to_string())?;
     text.push('\n');
@@ -326,4 +344,25 @@ pub fn validate(root: &Path, m: &Manifest, targets: &BTreeSet<String>) -> Vec<Pr
         check(format!("operations.{}", o.id), &o.action, &mut out);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renames_the_old_file() {
+        let dir = std::env::temp_dir().join(format!("tillerdeck-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(LEGACY_FILE), r#"{"$schema":"https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json","version":2,"name":"Shop","environments":[]}"#).unwrap();
+        assert!(load(&dir).unwrap().is_none(), "the old name is not read");
+        adopt_legacy(&dir).unwrap();
+        assert!(!dir.join(LEGACY_FILE).exists());
+        let m = load(&dir).unwrap().unwrap();
+        assert_eq!(m.name, "Shop");
+        assert_eq!(m.schema.as_deref(), Some(SCHEMA));
+        assert!(adopt_legacy(&dir).is_err(), "never overwrites tillerdeck.json");
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }

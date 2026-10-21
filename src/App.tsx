@@ -6,6 +6,7 @@ import { api, errorText, type MakeTarget, type RunMeta, type RunSpec } from "./a
 import { useProject, useRuns } from "./v2/store";
 import { WsProvider, type Page, type Ws } from "./v2/context";
 import { Shell } from "./v2/Shell";
+import { Wordmark } from "./v2/Logo";
 import { Confirm, Modal, Toast, type ConfirmSpec } from "./v2/ui";
 import { LogPanel, RunCard } from "./v2/RunViews";
 import { Palette } from "./v2/Palette";
@@ -21,7 +22,7 @@ import Workspace from "./legacy/Workspace";
 import { applyTheme, loadPrefs, savePrefs, type Prefs } from "./v2/prefs";
 import { setLang, t } from "./v2/i18n";
 
-const RECENTS = "ansible-mario.recents";
+const RECENTS = "tillerdeck.recents";
 const recents = (): string[] => {
   try {
     return JSON.parse(localStorage.getItem(RECENTS) ?? "[]");
@@ -52,9 +53,9 @@ export default function App() {
   const [refreshedAt, setRefreshedAt] = useState(Date.now());
   const [quit, setQuit] = useState<{ running: number; dirty: boolean } | null>(null);
   const [skipWizard, setSkipWizard] = useState(false);
-  // Boas-vindas a um projecto sem ansible-mario.json: uma vez por projecto.
+  // Boas-vindas a um projecto sem tillerdeck.json: uma vez por projecto.
   const [welcomed, setWelcomed] = useState<Record<string, boolean>>({});
-  const welcomeKey = (root: string) => `ansible-mario.welcomed.${root}`;
+  const welcomeKey = (root: string) => `tillerdeck.welcomed.${root}`;
   const [filesOpened, setFilesOpened] = useState(false);
   useEffect(() => {
     if (page === "ficheiros") setFilesOpened(true);
@@ -78,7 +79,7 @@ export default function App() {
     setSkipWizard(false);
     setFilesOpened(false);
     setMaint({});
-    setEnvId(localStorage.getItem(`ansible-mario.env.${p.root}`));
+    setEnvId(localStorage.getItem(`tillerdeck.env.${p.root}`));
   }, [proj.load]);
 
   async function pick() {
@@ -174,7 +175,7 @@ export default function App() {
       env,
       setEnv: (id: string) => {
         setEnvId(id);
-        localStorage.setItem(`ansible-mario.env.${root}`, id);
+        localStorage.setItem(`tillerdeck.env.${root}`, id);
       },
       page,
       go: setPage,
@@ -248,9 +249,8 @@ export default function App() {
     return (
       <div className="flex h-full items-center justify-center p-8" data-tauri-drag-region>
         <div className="panel am-in w-[560px] p-8" style={{ background: "var(--w-panel)" }}>
-          <span className="grid size-12 place-items-center rounded-2xl text-[20px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c6cff,#4a8cff)" }}>A</span>
-          <h1 className="mt-5 text-[24px] font-semibold tracking-tight">Ansible Mario</h1>
-          <p className="mt-1 text-fg-2">{t("Your playbooks as an app: services, promotion, backups and machines, with the Ansible you already have.")}</p>
+          <h1 className="text-[28px]"><Wordmark size={30} /></h1>
+          <p className="mt-3 text-fg-2">{t("Steer your infra by hand: services, promotion, backups and machines, with the Ansible you already have.")}</p>
           <button className="b b-pri mt-6 h-11 w-full justify-center text-[14px]" onClick={pick} disabled={proj.loading}>
             <FolderOpen size={17} />{proj.loading ? t("Opening…") : t("Open project")}<span className="kbd ml-2 !bg-white/15 !text-white/80">{isMac ? "⌘O" : "Ctrl O"}</span>
           </button>
@@ -332,7 +332,7 @@ export default function App() {
       </Shell>
       {confirm && <Confirm spec={confirm} onClose={() => setConfirm(null)} />}
       {palette && <Palette onClose={() => setPalette(false)} />}
-      {ws.state.auto && !welcomed[ws.project.root] && !(() => { try { return localStorage.getItem(welcomeKey(ws.project.root)); } catch { return null; } })() && (
+      {ws.state.auto && !ws.state.legacyFile && !welcomed[ws.project.root] && !(() => { try { return localStorage.getItem(welcomeKey(ws.project.root)); } catch { return null; } })() && (
         <Wizard
           first
           autoTemplate={ws.state.auto.template}

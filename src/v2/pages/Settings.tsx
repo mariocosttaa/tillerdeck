@@ -11,7 +11,7 @@ type Tab = "general" | "servers" | "products" | "operations" | "variables" | "js
 
 /** Abrir as Definições num separador (o ⚙ da barra lateral abre as Preferências). */
 export function openSettings(go: (p: "definicoes") => void, tab: Tab) {
-  try { sessionStorage.setItem("ansible-mario.settingsTab", tab); } catch { /* sem armazenamento */ }
+  try { sessionStorage.setItem("tillerdeck.settingsTab", tab); } catch { /* sem armazenamento */ }
   go("definicoes");
   window.dispatchEvent(new CustomEvent("am-settings-tab", { detail: tab }));
 }
@@ -48,8 +48,8 @@ export function Settings() {
   const ws = useWs();
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      const v = sessionStorage.getItem("ansible-mario.settingsTab") as Tab | null;
-      sessionStorage.removeItem("ansible-mario.settingsTab");
+      const v = sessionStorage.getItem("tillerdeck.settingsTab") as Tab | null;
+      sessionStorage.removeItem("tillerdeck.settingsTab");
       return v ?? "products";
     } catch {
       return "products";
@@ -87,7 +87,7 @@ export function Settings() {
     try {
       await api.manifestSave(ws.project.root, draft);
       await ws.refresh();
-      ws.toast(t("ansible-mario.json saved"));
+      ws.toast(t("tillerdeck.json saved"));
     } catch (e) {
       ws.toast(errorText(e), true);
     }
@@ -114,8 +114,8 @@ export function Settings() {
           ) : (
             <p className="min-w-0 flex-1 text-[13px] text-fg-2">
               {ws.state.auto
-                ? <>{t("Automatic — read from the project. Save to create")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span>.</>
-                : <>{t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}</>}
+                ? <>{t("Automatic — read from the project. Save to create")} <span className="font-mono text-fg">{ws.project.name}/tillerdeck.json</span>.</>
+                : <>{t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/tillerdeck.json</span> — {t("it travels with the repository, the team sees the same.")}</>}
             </p>
           )}
           {!personal && <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Apply template")}</button>}
@@ -156,7 +156,7 @@ export function Settings() {
         {tab === "json" && (
           <div>
             <div className="mb-2 flex items-center gap-2 text-[12.5px]">
-              <FileCode2 size={15} className="text-fg-3" /><span className="font-mono">ansible-mario.json</span>
+              <FileCode2 size={15} className="text-fg-3" /><span className="font-mono">tillerdeck.json</span>
               <span className="ml-auto">{jsonErr ? <Tint color="var(--danger)">{t("invalid JSON")}</Tint> : dirty ? <Tint color="var(--w-accent)">{t("unsaved")}</Tint> : <Tint color="var(--ok)"><CircleCheck size={12} />{t("saved")}</Tint>}</span>
             </div>
             <textarea
@@ -632,7 +632,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, first, autoTempl
     if (!r) return;
     try {
       await api.manifestSave(root, r.manifest);
-      toast(t("ansible-mario.json created — review it in Settings"));
+      toast(t("tillerdeck.json created — review it in Settings"));
       onApplied();
     } catch (e) {
       toast(errorText(e), true);
@@ -663,7 +663,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, first, autoTempl
         <p className="mt-1 text-fg-2">
           {welcome
             ? t("The app read your project with the most compatible template and opened it. Nothing is written to the repository until you save — and everything can be changed later in Settings.")
-            : <>{t("The app reads the project and proposes.")} {first ? t("Without settings, Files mode is still available.") : t("It replaces the current ansible-mario.json.")}</>}
+            : <>{t("The app reads the project and proposes.")} {first ? t("Without settings, Files mode is still available.") : t("It replaces the current tillerdeck.json.")}</>}
         </p>
         <div className="mt-5 space-y-2">
           {option("makefile-convention", t("Makefile convention"), <>{t("Targets")} <span className="font-mono">verb-product-technology-environment</span>, {t("like")} <span className="font-mono">deploy-shop-nestjs-staging</span>.</>)}
@@ -682,7 +682,7 @@ export function Wizard({ root, name, toast, onClose, onApplied, first, autoTempl
         )}
         {welcome ? (
           <div className="mt-6 flex justify-end gap-2">
-            <button className="b" disabled={!r} onClick={apply}><Save size={15} />{t("Save ansible-mario.json")}</button>
+            <button className="b" disabled={!r} onClick={apply}><Save size={15} />{t("Save tillerdeck.json")}</button>
             {choice === autoTemplate
               ? <button className="b b-pri" onClick={onClose}>{t("Start")}</button>
               : <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}>{t("Use this template")}</button>}
@@ -690,10 +690,10 @@ export function Wizard({ root, name, toast, onClose, onApplied, first, autoTempl
         ) : (
           <div className="mt-6 flex justify-end gap-2">
             <button className="b" onClick={onClose}>{first ? t("Not now") : t("Cancel")}</button>
-            <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}><Plus size={15} />{t("Create ansible-mario.json")}</button>
+            <button className="b b-pri" disabled={!r || !r.compatible} onClick={apply}><Plus size={15} />{t("Create tillerdeck.json")}</button>
           </div>
         )}
-        {welcome && <p className="mt-3 text-[12px] text-fg-3">{t("Saving puts ansible-mario.json in the project folder (not committed), so the team sees the same.")}</p>}
+        {welcome && <p className="mt-3 text-[12px] text-fg-3">{t("Saving puts tillerdeck.json in the project folder (not committed), so the team sees the same.")}</p>}
         {!first && <p className="mt-3 flex items-center gap-1.5 text-[12px] text-fg-3"><Trash2 size={12} />{t("Your manual changes to the current file are lost.")}</p>}
       </div>
     </Modal>

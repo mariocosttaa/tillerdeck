@@ -1,13 +1,13 @@
 ---
-name: ansible-mario-json
-description: Write or update the ansible-mario.json of an Ansible project (servers, products, services, buttons, operations, variables, version sources) by reading its Makefile, inventories and releases. Use when someone wants their infra repo to open in Ansible Mario, or asks to fix, extend or validate that file.
+name: tillerdeck-json
+description: Write or update the tillerdeck.json of an Ansible project (servers, products, services, buttons, operations, variables, version sources) by reading its Makefile, inventories and releases. Use when someone wants their infra repo to open in Tillerdeck, or asks to fix, extend or validate that file.
 ---
 
-# ansible-mario.json for an Ansible project
+# tillerdeck.json for an Ansible project
 
-[Ansible Mario](https://github.com/mariocosttaa/ansible-mario) is a desktop app that runs a project's own
+[Tillerdeck](https://github.com/mariocosttaa/tillerdeck) is a desktop app that runs a project's own
 Makefile targets and playbooks behind buttons. It reads a single file at the root of the infra repo:
-`ansible-mario.json`. This skill writes that file **from what the repository actually has**.
+`tillerdeck.json`. This skill writes that file **from what the repository actually has**.
 
 The app can generate a first version itself (Settings → Apply template). Use this skill when the project
 doesn't follow the Makefile convention, when the template got parts wrong, or to add what it can't guess
@@ -140,7 +140,7 @@ Settings the app can edit in place, in plain YAML files (one line at column 0) o
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
+  "$schema": "https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/schema/v2.json",
   "version": 2,
   "name": "Shop",
   "template": "makefile-convention",
@@ -157,10 +157,10 @@ Settings the app can edit in place, in plain YAML files (one line at column 0) o
 
 ```bash
 npx -y ajv-cli@5.0.0 validate --spec=draft2020 \
-  -s <(curl -s https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json) \
-  -d ansible-mario.json
+  -s <(curl -s https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/schema/v2.json) \
+  -d tillerdeck.json
 # every make target in the file exists:
-grep -o '"make": *"[^"]*"' ansible-mario.json | cut -d'"' -f4 | sort -u
+grep -o '"make": *"[^"]*"' tillerdeck.json | cut -d'"' -f4 | sort -u
 ```
 
 Expand `{env}` for each server or placement token and check every target with `make -n <target>`
@@ -172,5 +172,5 @@ Report what you wrote, what you left out and why, and anything the owner should 
 
 ## Installing this skill
 
-Copy this folder to `.claude/skills/ansible-mario-json/` in the infra repo (shared with the team) or to
-`~/.claude/skills/ansible-mario-json/` (for you only). Other agents can read it as plain instructions.
+Copy this folder to `.claude/skills/tillerdeck-json/` in the infra repo (shared with the team) or to
+`~/.claude/skills/tillerdeck-json/` (for you only). Other agents can read it as plain instructions.

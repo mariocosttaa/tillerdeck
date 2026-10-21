@@ -1,6 +1,6 @@
 // Guardar os releases no git: o que fazer depois de um deploy com versão nova
 // (nada, commit, commit + push) e para que branch. É uma escolha de cada
-// pessoa, por projecto — fica neste computador, nunca no ansible-mario.json.
+// pessoa, por projecto — fica neste computador, nunca no tillerdeck.json.
 import { api, errorText } from "../api";
 import type { Ws } from "./context";
 import { t } from "./i18n";
@@ -12,7 +12,7 @@ export interface GitPrefs {
   branch: string;
 }
 
-const key = (root: string) => `ansible-mario.git.${root}`;
+const key = (root: string) => `tillerdeck.git.${root}`;
 
 export function loadGit(root: string): GitPrefs {
   try {
@@ -79,7 +79,7 @@ export async function commitReleases(ws: Ws, files: string[], message: string, p
   await ws.refresh();
 }
 
-const pubKey = (root: string) => `ansible-mario.published.${root}`;
+const pubKey = (root: string) => `tillerdeck.published.${root}`;
 function markPublished(ws: Ws, files: string[]) {
   try {
     const all = JSON.parse(localStorage.getItem(pubKey(ws.project.root)) ?? "{}");

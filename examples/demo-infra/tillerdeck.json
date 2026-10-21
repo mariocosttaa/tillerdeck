@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/mariocosttaa/ansible-mario/main/schema/v2.json",
+  "$schema": "https://raw.githubusercontent.com/mariocosttaa/tillerdeck/main/schema/v2.json",
   "environments": [
     {
       "color": "staging",

@@ -18,7 +18,7 @@ export function Builds() {
     () => m.products.filter((p) => productOn(p, env.id)).flatMap((p) => p.services.filter((s) => versionSource(ws, s)).map((s) => ({ p, s }))),
     [m, env.id],
   );
-  const [key, setKey] = useState(() => localStorage.getItem(`ansible-mario.builds.${ws.project.root}`) ?? "");
+  const [key, setKey] = useState(() => localStorage.getItem(`tillerdeck.builds.${ws.project.root}`) ?? "");
   const cur = items.find((x) => serviceKey(x.p, x.s) === key) ?? items[0];
   const [list, setList] = useState<Choice[] | null>(null);
   const [at, setAt] = useState<number>();
@@ -55,7 +55,7 @@ export function Builds() {
   const deployable = canRun(ws, p, s, "deploy");
   const choose = (k: string) => {
     setKey(k);
-    try { localStorage.setItem(`ansible-mario.builds.${ws.project.root}`, k); } catch { /* sem armazenamento */ }
+    try { localStorage.setItem(`tillerdeck.builds.${ws.project.root}`, k); } catch { /* sem armazenamento */ }
   };
 
   return (

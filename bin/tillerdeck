@@ -1,11 +1,11 @@
 #!/bin/sh
-# Abre um projecto Ansible na app: `ansible-mario` (pasta actual) ou `ansible-mario <pasta>`.
-# No Linux com o .deb não é preciso: o próprio /usr/bin/ansible-mario aceita a pasta.
+# Abre um projecto Ansible na app: `tillerdeck` (pasta actual) ou `tillerdeck <pasta>`.
+# No Linux com o .deb não é preciso: o próprio /usr/bin/tillerdeck aceita a pasta.
 dir="${1:-.}"
 dir="$(cd "$dir" && pwd)" || exit 1
 if [ "$(uname)" = "Darwin" ]; then
-  exec open -n -a "Ansible Mario" --args "$dir"
+  exec open -n -a "Tillerdeck" --args "$dir"
 fi
-# Linux: o binário do .deb, ou um AppImage indicado em ANSIBLE_MARIO_APP.
-app="${ANSIBLE_MARIO_APP:-/usr/bin/ansible-mario}"
+# Linux: o binário do .deb, ou um AppImage indicado em TILLERDECK_APP.
+app="${TILLERDECK_APP:-/usr/bin/tillerdeck}"
 nohup "$app" "$dir" >/dev/null 2>&1 &
