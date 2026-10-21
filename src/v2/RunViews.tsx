@@ -5,6 +5,7 @@ import { api, errorText } from "../api";
 import type { Run } from "./store";
 import { useWs } from "./context";
 import { duration } from "./lib";
+import { t } from "./i18n";
 
 const ansi = new AnsiUp();
 ansi.use_classes = true;
@@ -15,10 +16,10 @@ function elapsed(from: string) {
 }
 
 export function statusOf(r: Run) {
-  if (r.running) return { label: "a correr", color: "var(--w-accent)" };
-  if (r.entry.cancelled) return { label: "cancelada", color: "var(--warn)" };
-  if (r.entry.exitCode === 0) return { label: "ok", color: "var(--ok)" };
-  return { label: `falhou${r.entry.exitCode != null ? ` (${r.entry.exitCode})` : ""}`, color: "var(--danger)" };
+  if (r.running) return { label: t("running"), color: "var(--w-accent)" };
+  if (r.entry.cancelled) return { label: t("cancelled"), color: "var(--warn)" };
+  if (r.entry.exitCode === 0) return { label: t("ok"), color: "var(--ok)" };
+  return { label: `${t("failed")}${r.entry.exitCode != null ? ` (${r.entry.exitCode})` : ""}`, color: "var(--danger)" };
 }
 
 /** O cartão flutuante: a corrida em foco, com o passo actual e o progresso. */
@@ -38,7 +39,7 @@ export function RunCard({ run, onLog, onClose }: { run: Run; onLog: () => void; 
 
   async function cancel() {
     try {
-      ws.toast(`${await api.runCancel(run.entry.id)} enviado`);
+      ws.toast(t("{sig} sent", { sig: await api.runCancel(run.entry.id) }));
     } catch (e) {
       ws.toast(errorText(e), true);
     }
@@ -70,16 +71,16 @@ export function RunCard({ run, onLog, onClose }: { run: Run; onLog: () => void; 
             {run.running ? (
               <>
                 <LoaderCircle size={13} className="animate-spin text-accent" />
-                {cur ? cur.name : "a arrancar…"} · {elapsed(run.entry.startedAt)}
+                {cur ? cur.name : t("starting…")} · {elapsed(run.entry.startedAt)}
               </>
             ) : (
-              <span style={{ color: st.color }}>{st.label} · {duration(run.entry)} · {run.steps.length} passos</span>
+              <span style={{ color: st.color }}>{st.label} · {duration(run.entry)} · {t("{n} steps", { n: run.steps.length })}</span>
             )}
           </p>
         </div>
-        <button className="b b-sm" onClick={onLog}><ScrollText size={14} />Log</button>
+        <button className="b b-sm" onClick={onLog}><ScrollText size={14} />{t("Log")}</button>
         {run.running ? (
-          <button className="ib !size-8" title="Cancelar (SIGINT, depois SIGTERM)" onClick={cancel}><Square size={14} /></button>
+          <button className="ib !size-8" title={t("Cancel (SIGINT, then SIGTERM)")} onClick={cancel}><Square size={14} /></button>
         ) : (
           <button className="ib !size-8" onClick={onClose}><X size={15} /></button>
         )}
@@ -98,16 +99,16 @@ function CancelButton({ id }: { id: string }) {
   return (
     <button
       className="b b-sm"
-      title="1.º SIGINT · 2.º SIGTERM · 3.º SIGKILL"
+      title={t("1st SIGINT · 2nd SIGTERM · 3rd SIGKILL")}
       onClick={async () => {
         try {
-          ws.toast(`${await api.runCancel(id)} enviado`);
+          ws.toast(t("{sig} sent", { sig: await api.runCancel(id) }));
         } catch (e) {
           ws.toast(errorText(e), true);
         }
       }}
     >
-      <Square size={13} />Cancelar
+      <Square size={13} />{t("Cancel")}
     </button>
   );
 }
@@ -127,13 +128,13 @@ export function LogPanel({ run, onClose }: { run: Run; onClose: () => void }) {
         <span className="pill" style={{ color: st.color, background: `color-mix(in srgb, ${st.color} 14%, transparent)` }}>{st.label}</span>
         <span className="font-semibold">{run.entry.meta?.title ?? run.entry.label}</span>
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg-3 selectable">{run.entry.argv.join(" ")}</span>
-        <label className="flex items-center gap-1.5 text-[12px] text-fg-2"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />seguir</label>
+        <label className="flex items-center gap-1.5 text-[12px] text-fg-2"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />{t("follow")}</label>
         {run.running && <CancelButton id={run.entry.id} />}
         <button className="ib" onClick={onClose}><X size={16} /></button>
       </div>
       <div className="flex min-h-0 flex-1">
         <ol className="scroll w-[300px] shrink-0 space-y-0.5 overflow-auto border-r hair p-3 text-[12.5px]">
-          {run.steps.length === 0 && <li className="px-2 py-1 text-fg-3">Sem passos do Ansible (ainda).</li>}
+          {run.steps.length === 0 && <li className="px-2 py-1 text-fg-3">{t("No Ansible steps (yet).")}</li>}
           {run.steps.map((s, i) => (
             <li key={i} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 ${s.state === "running" ? "bg-raise-2 font-medium" : ""}`}>
               {s.state === "ok" ? <CircleCheck size={15} className="shrink-0 text-ok" /> : s.state === "failed" ? <CircleX size={15} className="shrink-0 text-danger" /> : run.running ? <LoaderCircle size={15} className="shrink-0 animate-spin text-accent" /> : <CircleDashed size={15} className="shrink-0 text-fg-3" />}

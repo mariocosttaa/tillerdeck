@@ -1,4 +1,5 @@
 import type { Action, EnvDef, HistoryEntry, Manifest, Operation, Product, Service } from "../api";
+import { t } from "./i18n";
 
 export const ENV_COLOR: Record<string, string> = {
   staging: "var(--env-staging)",
@@ -44,24 +45,65 @@ export function cmpVersion(a?: string, b?: string): number | null {
   return ca && cb ? (ca === cb ? 0 : null) : null;
 }
 
-export function actionEnvs(a: Action, m: Manifest): string[] {
-  return a.envs && a.envs.length ? a.envs : m.environments.map((e) => e.id);
+/** Onde um produto corre num servidor: o alvo (`{env}`), o inventário e o release. */
+export interface Where {
+  server: EnvDef;
+  token: string;
+  inventory: string;
+  release?: string;
 }
 
-export function hasAction(a: Action | undefined, env: string, m: Manifest): boolean {
-  return !!a && actionEnvs(a, m).includes(env);
+export function where(p: Product | undefined, server: EnvDef): Where {
+  const pl = p?.placements?.[server.id];
+  return pl
+    ? { server, token: pl.token, inventory: pl.inventory, release: pl.release }
+    : { server, token: server.id, inventory: server.inventory, release: server.release };
 }
 
-/** O alvo do make para este ambiente, ou null se a acção é um playbook. */
-export function makeTarget(a: Action, env: string): string | null {
-  return a.make ? a.make.replace("{env}", env) : null;
+export function productOn(p: Product, server: string): boolean {
+  return !p.environments?.length || p.environments.includes(server);
+}
+
+/** A acção existe para este alvo (`staging`, `production`, `testes`…)? */
+export function actionFor(a: Action | undefined, token: string): boolean {
+  return !!a && (!a.envs?.length || a.envs.includes(token));
+}
+
+/** Operações: `envs` são servidores. */
+export function opOn(a: Action, server: string): boolean {
+  return !a.envs?.length || a.envs.includes(server);
+}
+
+/** O alvo do make, com `{env}` resolvido, ou null se é um playbook. */
+export function makeTarget(a: Action, token: string): string | null {
+  return a.make ? a.make.replace("{env}", token) : null;
 }
 
 /** O alvo existe no Makefile? Um botão sem alvo fica desligado. */
-export function targetExists(a: Action, env: string, targets: Set<string>): boolean {
-  const t = makeTarget(a, env);
-  if (!t) return true;
-  return targets.has(t.split(/\s+/)[0]);
+export function targetExists(a: Action, token: string, targets: Set<string>): boolean {
+  const x = makeTarget(a, token);
+  if (!x) return true;
+  return targets.has(x.split(/\s+/)[0]);
+}
+
+/** Versão de um serviço num servidor, lida do release onde o produto vive lá. */
+export function versionOf(releases: Record<string, Record<string, string>>, w: Where, s: Service): string | undefined {
+  return s.releaseKey && w.release ? releases[w.release]?.[s.releaseKey] : undefined;
+}
+
+/**
+ * Fechado ou aberto? O que vale é o mais recente: um deploy (que reaplica o
+ * que está no inventário), um "fechar" ou um "reabrir" feito daqui. Sem
+ * nenhum, vale o inventário. Nunca é estado em directo.
+ */
+export function maintenanceState(history: HistoryEntry[], root: string, server: string, svc: string, flag: boolean | undefined) {
+  const last = history.find(
+    (h) => h.root === root && h.meta?.env === server && h.meta?.service === svc && h.endedAt && h.exitCode === 0 && ["deploy", "maintenanceOn", "maintenanceOff"].includes(h.meta?.action ?? ""),
+  );
+  if (last?.meta?.action === "maintenanceOn") return { closed: true, source: "action" as const, at: last.endedAt };
+  if (last?.meta?.action === "maintenanceOff") return { closed: false, source: "action" as const, at: last.endedAt };
+  if (flag === undefined) return { closed: undefined, source: "unknown" as const };
+  return { closed: flag, source: "inventory" as const };
 }
 
 export const serviceKey = (p: Product, s: Service) => `${p.id}.${s.id}`;
@@ -72,19 +114,7 @@ export function maintenanceKey(s: Service): string | null {
   return s.releaseKey.replace(/_(tag|commit|version|image)$/, "") + "_maintenance_mode";
 }
 
-export function relTime(iso?: string | null): string {
-  if (!iso) return "";
-  const ms = Date.now() - new Date(iso).getTime();
-  const m = Math.round(ms / 60000);
-  if (m < 1) return "agora";
-  if (m < 60) return `há ${m} min`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `há ${h} h`;
-  const d = Math.round(h / 24);
-  if (d === 1) return "ontem";
-  if (d < 30) return `há ${d} dias`;
-  return new Date(iso).toLocaleDateString("pt-PT", { day: "numeric", month: "short" });
-}
+export { relTime } from "./i18n";
 
 export function duration(e: HistoryEntry): string {
   if (!e.endedAt) return "";
@@ -100,14 +130,8 @@ export function lastRun(history: HistoryEntry[], root: string, env: string, serv
   );
 }
 
-export const OP_GROUPS: Record<string, string> = {
-  machine: "Provisionamento",
-  backup: "Backups",
-  observability: "Observabilidade",
-  verify: "Verificar",
-  maintenance: "Manutenção",
-  other: "Outros",
-};
+export const opGroupLabel = (g: string) =>
+  ({ machine: t("Provisioning"), backup: t("Backups"), observability: t("Observability"), verify: t("Verify"), maintenance: t("Maintenance"), other: t("Other") })[g] ?? g;
 
 export function opsIn(m: Manifest, group: string): Operation[] {
   return m.operations.filter((o) => o.group === group);

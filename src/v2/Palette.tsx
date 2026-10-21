@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, CornerDownLeft, Play, Search } from "lucide-react";
-import { ACTION_META, canRun, opAvailable, runOperation, runServiceAction, useWs, type Page } from "./context";
+import { actionMeta, canRun, opAvailable, runOperation, runServiceAction, useWs, type Page } from "./context";
+import { productOn } from "./lib";
 import { EnvDot, TechIcon } from "./ui";
+import { t } from "./i18n";
 
 interface Cmd {
   id: string;
@@ -11,7 +13,7 @@ interface Cmd {
   run: () => void;
 }
 
-/** ⌘K: ir para um ecrã, mudar de ambiente, ou correr qualquer acção. */
+/** ⌘K: ir para um ecrã, mudar de servidor, ou correr qualquer acção. */
 export function Palette({ onClose }: { onClose: () => void }) {
   const ws = useWs();
   const [q, setQ] = useState("");
@@ -21,14 +23,14 @@ export function Palette({ onClose }: { onClose: () => void }) {
 
   const cmds = useMemo<Cmd[]>(() => {
     const out: Cmd[] = [];
-    const pages: [Page, string][] = [["servicos", "Serviços"], ["promover", "Promover"], ["backups", "Backups"], ["maquina", "Máquina"], ["execucoes", "Execuções"], ["definicoes", "Definições"], ["ficheiros", "Ficheiros"]];
-    for (const p of ws.manifest.products) {
+    const pages: [Page, string][] = [["servicos", t("Services")], ["promover", t("Promote")], ["backups", t("Backups")], ["maquina", t("Machine")], ["execucoes", t("Runs")], ["definicoes", t("Settings")], ["ficheiros", t("Files")]];
+    for (const p of ws.manifest.products.filter((p) => productOn(p, ws.env.id))) {
       for (const s of p.services) {
         for (const a of Object.keys(s.actions)) {
-          if (!canRun(ws, s, a)) continue;
+          if (!canRun(ws, p, s, a)) continue;
           out.push({
             id: `svc:${p.id}.${s.id}:${a}`,
-            title: `${ACTION_META[a]?.verb ?? a} ${s.label}`,
+            title: `${actionMeta(a).verb} ${s.label}`,
             hint: `${p.label} · ${ws.env.label}`,
             icon: <TechIcon kind={s.kind} size="sm" />,
             run: () => runServiceAction(ws, p, s, a),
@@ -41,9 +43,9 @@ export function Palette({ onClose }: { onClose: () => void }) {
       out.push({ id: `op:${o.id}`, title: o.label, hint: `${ws.env.label} · ${o.description}`, icon: <Play size={14} className="text-fg-3" />, run: () => runOperation(ws, o) });
     }
     for (const e of ws.manifest.environments) {
-      if (e.id !== ws.env.id) out.push({ id: `env:${e.id}`, title: `Mudar para ${e.label}`, icon: <EnvDot env={e} size={7} />, run: () => ws.setEnv(e.id) });
+      if (e.id !== ws.env.id) out.push({ id: `env:${e.id}`, title: t("Switch to {env}", { env: e.label }), icon: <EnvDot env={e} size={7} />, run: () => ws.setEnv(e.id) });
     }
-    for (const [p, l] of pages) out.push({ id: `go:${p}`, title: `Ir para ${l}`, icon: <ArrowRight size={14} className="text-fg-3" />, run: () => ws.go(p) });
+    for (const [p, l] of pages) out.push({ id: `go:${p}`, title: t("Go to {page}", { page: l }), icon: <ArrowRight size={14} className="text-fg-3" />, run: () => ws.go(p) });
     return out;
   }, [ws]);
 
@@ -66,11 +68,11 @@ export function Palette({ onClose }: { onClose: () => void }) {
       <div className="panel am-in h-fit w-[620px] overflow-hidden" style={{ background: "var(--w-raise)" }} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 border-b hair px-4">
           <Search size={17} className="text-fg-3" />
-          <input ref={input} className="h-13 flex-1 bg-transparent text-[15px] outline-none placeholder:text-fg-3" placeholder={`Correr em ${ws.env.label}, ir para… (ex.: deploy api)`} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={key} />
+          <input ref={input} className="h-13 flex-1 bg-transparent text-[15px] outline-none placeholder:text-fg-3" placeholder={t("Run on {env}, go to… (e.g. deploy api)", { env: ws.env.label })} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={key} />
           <span className="kbd">esc</span>
         </div>
         <div className="scroll max-h-[420px] overflow-auto p-2">
-          {list.length === 0 && <p className="px-3 py-6 text-center text-fg-3">Nada encontrado.</p>}
+          {list.length === 0 && <p className="px-3 py-6 text-center text-fg-3">{t("Nothing found.")}</p>}
           {list.map((c, j) => (
             <button key={c.id} className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2 text-left" style={j === i ? { background: "color-mix(in srgb, var(--w-accent) 16%, transparent)" } : {}} onMouseEnter={() => setI(j)} onClick={() => { onClose(); c.run(); }}>
               <span className="grid w-6 place-items-center">{c.icon}</span>
