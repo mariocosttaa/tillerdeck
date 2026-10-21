@@ -220,6 +220,23 @@ fn release_commit(root: String, release: String, message: String) -> Result<Stri
 }
 
 #[tauri::command]
+fn release_commit_many(root: String, files: Vec<String>, message: String) -> Result<String, String> {
+    ops::commit_files(&root_path(&root), &files, &message)
+}
+
+#[tauri::command]
+async fn git_remote(root: String) -> Result<ops::Remote, String> {
+    tauri::async_runtime::spawn_blocking(move || ops::remote(&root_path(&root))).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn git_push(root: String, branch: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || ops::push(&root_path(&root), &branch))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn maintenance_state(root: String, inventory: String) -> Result<std::collections::BTreeMap<String, bool>, String> {
     tauri::async_runtime::spawn_blocking(move || ops::maintenance(&root_path(&root), &inventory))
         .await
@@ -398,6 +415,9 @@ pub fn run() {
             maintenance_state,
             registry_match,
             registry_builds,
+            release_commit_many,
+            git_remote,
+            git_push,
             git_commits,
             var_set,
             vault_key_set,
