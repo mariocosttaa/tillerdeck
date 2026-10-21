@@ -131,6 +131,7 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
   }).map((f) => [f.name, f])).values()], [mode, s, w.token, ws]);
   const [values, setValues] = useState<Record<string, string>>({});
   const wordRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const load = (force = false) => {
     if (!src || !pickable) return;
@@ -142,6 +143,21 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
       .finally(() => setLoading(false));
   };
   useEffect(() => load(), [pickable]);
+
+  // Tudo por data, da mais recente para a mais antiga — a instalada incluída,
+  // no seu lugar. As que não vieram da fonte (a do release, a escolhida nas
+  // Builds) entram com a data que houver; sem data, vão para o fim.
+  const ordered = useMemo(() => {
+    const out = [...(list ?? [])];
+    if (current && !out.some((c) => c.value === current)) out.push({ value: current, title: t("the version in the release") });
+    if (req.preset && !out.some((c) => c.value === req.preset)) out.push({ value: req.preset, title: t("chosen in Builds") });
+    const at = (c: Choice) => (c.date ? Date.parse(c.date) || 0 : 0);
+    return out.sort((a, b) => at(b) - at(a));
+  }, [list, current, req.preset]);
+  // a seleccionada à vista quando a lista chega
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>("[data-on='1']")?.scrollIntoView({ block: "nearest" });
+  }, [list]);
 
   if (!mode) return null;
   const value = manualOn ? manual.trim() || undefined : pick;
@@ -167,7 +183,7 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
     const on = !manualOn && pick === c.value;
     const isCurrent = c.value === current;
     return (
-      <button key={c.value} className={`flex w-full items-center gap-3 rounded-[9px] px-3 py-2 text-left ${on ? "" : "hover:bg-raise-2"}`} style={on ? { background: "color-mix(in srgb, var(--w-accent) 15%, transparent)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--w-accent) 45%, transparent)" } : {}} onClick={() => { setManualOn(false); setPick(c.value); }}>
+      <button key={c.value} data-on={on ? "1" : "0"} className={`flex w-full items-center gap-3 rounded-[9px] px-3 py-2 text-left ${on ? "" : "hover:bg-raise-2"}`} style={on ? { background: "color-mix(in srgb, var(--w-accent) 15%, transparent)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--w-accent) 45%, transparent)" } : {}} onClick={() => { setManualOn(false); setPick(c.value); }}>
         <span className={`grid size-4 shrink-0 place-items-center rounded-full ring-1 ${on ? "bg-accent ring-accent" : "ring-line-2"}`}>{on && <Check size={10} className="text-white" />}</span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
@@ -217,11 +233,8 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
             {at && <span className="text-[11.5px] text-fg-3">{relTime(new Date(at).toISOString())}</span>}
             {src && <button className="ib !size-7" title={t("Refresh")} onClick={() => load(true)}><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>}
           </div>
-          <div className="scroll max-h-[min(260px,34vh)] space-y-0.5 overflow-auto rounded-xl bg-panel p-1.5 ring-1 ring-line">
-            {/* a instalada fica sempre em cima: é o "não mudar nada" */}
-            {current && row((list ?? []).find((c) => c.value === current) ?? { value: current, title: t("the version in the release") })}
-            {req.preset && req.preset !== current && !(list ?? []).some((c) => c.value === req.preset) && row({ value: req.preset, title: t("chosen in Builds") })}
-            {(list ?? []).filter((c) => c.value !== current).map(row)}
+          <div ref={listRef} className="scroll max-h-[min(260px,34vh)] space-y-0.5 overflow-auto rounded-xl bg-panel p-1.5 ring-1 ring-line">
+            {ordered.map(row)}
             {loading && !list && <p className="px-3 py-4 text-center text-[12.5px] text-fg-3">{src?.source === "git" ? t("reading the commits…") : t("asking the registry…")}</p>}
             {error && <p className="px-3 py-3 text-[12.5px] text-warn selectable">{error}</p>}
             {!src && <p className="px-3 py-3 text-[12.5px] text-fg-3">{t("No version source for this service — set a registry or a git repository in Settings, or type the version.")}</p>}

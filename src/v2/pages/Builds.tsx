@@ -47,6 +47,9 @@ export function Builds() {
     );
   }
   const { p, s } = cur;
+  // sempre por data, da mais recente para a mais antiga; sem data, no fim
+  const when = (c: Choice) => (c.date ? Date.parse(c.date) || 0 : 0);
+  const sorted = list ? [...list].sort((a, b) => when(b) - when(a)) : null;
   const src = versionSource(ws, s)!;
   const servers = m.environments.filter((e) => productOn(p, e.id));
   const deployable = canRun(ws, p, s, "deploy");
@@ -94,7 +97,7 @@ export function Builds() {
         {loading && !list && <p className="px-4 py-8 text-center text-fg-3">{src.source === "git" ? t("reading the commits…") : t("asking the registry…")}</p>}
         {error && <p className="px-4 py-5 text-warn selectable">{error}</p>}
         {list && !list.length && <p className="px-4 py-8 text-center text-fg-3">{t("No builds match the tag format.")}</p>}
-        {list?.map((c) => {
+        {sorted?.map((c) => {
           const here = servers.filter((e) => versionOf(ws.state.releases, where(p, e), s) === c.value);
           const isHere = here.some((e) => e.id === env.id);
           return (
@@ -114,16 +117,14 @@ export function Builds() {
                 <span className="block text-[11px] text-fg-3">{c.size ? formatSize(c.size) : c.author ?? ""}</span>
               </span>
               <span className="flex w-[150px] justify-end">
-                {!isHere && (
-                  <button
-                    className={`b b-sm opacity-0 group-hover:opacity-100 focus:opacity-100 ${env.protected ? "b-prod" : "b-pri"}`}
-                    disabled={!deployable}
-                    title={deployable ? "" : t("not available on {env}", { env: env.label })}
-                    onClick={() => ws.openDeploy({ p, s, action: "deploy", preset: c.value })}
-                  >
-                    <Rocket size={13} />{t("Deploy to {env}", { env: env.label })}
-                  </button>
-                )}
+                <button
+                  className={`b b-sm opacity-0 group-hover:opacity-100 focus:opacity-100 ${env.protected ? "b-prod" : "b-pri"}`}
+                  disabled={!deployable}
+                  title={deployable ? "" : t("not available on {env}", { env: env.label })}
+                  onClick={() => ws.openDeploy({ p, s, action: "deploy", preset: c.value })}
+                >
+                  <Rocket size={13} />{isHere ? t("Redeploy") : t("Deploy to {env}", { env: env.label })}
+                </button>
               </span>
             </div>
           );
