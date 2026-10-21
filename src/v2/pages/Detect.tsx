@@ -12,12 +12,22 @@ const svcKey = (p: string, s: string) => `svc:${p}/${s}`;
 function keep(m: Manifest, out: Set<Key>, labels: Record<Key, string>): Manifest {
   const envs = m.environments.filter((e) => !out.has(`env:${e.id}`)).map((e) => ({ ...e, label: labels[`env:${e.id}`] ?? e.label }));
   const ids = new Set(envs.map((e) => e.id));
+  const envsOf = (list?: string[]) => list?.filter((e) => ids.has(e));
   const products = m.products
+    // um produto só de servidores que saíram também sai (vazio quereria dizer "em todos")
+    .filter((p) => !p.environments?.length || p.environments.some((e) => ids.has(e)))
     .map((p) => ({
       ...p,
-      environments: p.environments?.filter((e) => ids.has(e)),
+      environments: envsOf(p.environments),
       placements: p.placements && Object.fromEntries(Object.entries(p.placements).filter(([e]) => ids.has(e))),
-      services: p.services.filter((s) => !out.has(svcKey(p.id, s.id))).map((s) => ({ ...s, label: labels[svcKey(p.id, s.id)] ?? s.label })),
+      services: p.services
+        .filter((s) => !out.has(svcKey(p.id, s.id)))
+        .map((s) => ({
+          ...s,
+          label: labels[svcKey(p.id, s.id)] ?? s.label,
+          // uma acção só de servidores que saíram também sai
+          actions: Object.fromEntries(Object.entries(s.actions).filter(([, a]) => !a.envs?.length || a.envs.some((e) => ids.has(e))).map(([k, a]) => [k, { ...a, envs: envsOf(a.envs) }])),
+        })),
     }))
     .filter((p) => p.services.length);
   const variables = (m.variables ?? [])
@@ -29,7 +39,9 @@ function keep(m: Manifest, out: Set<Key>, labels: Record<Key, string>): Manifest
     environments: envs,
     promotion: m.promotion.filter((p) => ids.has(p.from) && ids.has(p.to)),
     products,
-    operations: m.operations.filter((o) => !out.has(`op:${o.id}`)).map((o) => ({ ...o, label: labels[`op:${o.id}`] ?? o.label })),
+    operations: m.operations
+      .filter((o) => !out.has(`op:${o.id}`) && (!o.action.envs?.length || o.action.envs.some((e) => ids.has(e))))
+      .map((o) => ({ ...o, label: labels[`op:${o.id}`] ?? o.label, action: { ...o.action, envs: envsOf(o.action.envs) } })),
     variables,
   };
 }
