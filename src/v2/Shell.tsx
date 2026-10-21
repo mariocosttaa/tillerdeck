@@ -85,11 +85,10 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{running.length ? t("{n} running", { n: running.length }) : t("Nothing running")}</span>
-              <span className="block truncate text-fg-3">{ws.state.git.branch ? `git · ${ws.state.git.branch}` : t("no git")}{ws.state.git.dirty.length ? ` · ${t("{n} uncommitted", { n: ws.state.git.dirty.length })}` : ""}</span>
+              {version && <span className="block truncate text-fg-3" title={t("App version")}>Ansible Mario <span className="font-mono">v{version}</span></span>}
             </span>
             <button className="ib !size-7" title={t("Preferences")} onClick={() => openSettings(go, "preferences")}><Settings size={15} /></button>
           </div>
-          {version && <p className="mt-1.5 px-1 text-center text-[10.5px] text-fg-3" title={t("App version")}>Ansible Mario <span className="font-mono">v{version}</span></p>}
         </div>
       </aside>
 
