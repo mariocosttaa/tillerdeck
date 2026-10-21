@@ -601,6 +601,16 @@ fn by_machine(root: &Path, m: &mut Manifest, sections: &BTreeMap<String, (String
     variants
 }
 
+/// Nomes legíveis para o que vive no `notify.yml`:
+/// `deploy_notify_enabled` → "Deploy notify", `vault_deploy_discord_webhook_url` → "Discord webhook".
+fn notify_label(k: &str, key: &str, kind: &str) -> String {
+    if kind == "secret" && key.contains("webhook") {
+        let svc = ["discord", "slack", "teams", "telegram"].into_iter().find(|s| key.contains(s));
+        return match svc { Some(s) => format!("{} webhook", capitalize(s)), None => "Webhook".into() };
+    }
+    humanize_key(k.trim_end_matches("_enabled"))
+}
+
 fn humanize_key(k: &str) -> String {
     capitalize(&k.replace('_', " "))
 }
@@ -657,13 +667,16 @@ fn detect_variables(root: &Path, envs: &[Environment], variants: &BTreeMap<Strin
                 let group = f.trim_start_matches(&format!("{dir}/")).trim_end_matches(".yaml").trim_end_matches(".yml").to_string();
                 let entry = vars.entry(id.clone()).or_insert_with(|| {
                     order.push(id.clone());
+                    let base = if is_notify { notify_label(&k, &key, kind) } else { humanize_key(&k) };
                     Variable {
                         id: id.clone(),
-                        label: match &suffix { Some(sfx) => format!("{} ({sfx})", humanize_key(&k)), None => humanize_key(&k) },
+                        label: match &suffix { Some(sfx) => format!("{base} ({sfx})"), None => base },
                         group,
                         kind: kind.into(),
                         key: key.clone(),
                         files: BTreeMap::new(),
+                        category: is_notify.then(|| "notifications".to_string()),
+                        target: suffix.as_ref().map(|_| e.id.clone()),
                     }
                 });
                 entry.files.insert(server.clone(), file);

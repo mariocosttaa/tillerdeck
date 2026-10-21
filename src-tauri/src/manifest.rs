@@ -51,6 +51,12 @@ pub struct Variable {
     pub key: String,
     /// servidor → ficheiro
     pub files: BTreeMap<String, String>,
+    /// `notifications`: aparece no ecrã das Notificações.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    /// O token de um produto noutra máquina (`testes`) quando a variável é dele.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
 }
 
 /// Onde vive um produto num servidor que não é o "seu": o `saco-testes`

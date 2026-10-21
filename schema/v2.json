@@ -237,6 +237,16 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "category": {
+            "enum": [
+              "notifications"
+            ],
+            "description": "Shown on the Notifications screen."
+          },
+          "target": {
+            "type": "string",
+            "description": "The placement token (e.g. testes) when the variable belongs to a product living on another server."
           }
         },
         "additionalProperties": false
