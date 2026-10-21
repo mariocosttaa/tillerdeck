@@ -1,20 +1,21 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
-  Bell, Box, Boxes, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, Monitor, Moon, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2, Sun,
+  Bell, Box, Boxes, ChevronsUpDown, DatabaseBackup, FileCode2, GitCompareArrows, History, LayoutGrid, Lock, PanelLeft, RefreshCw, Search, ServerCog, Settings, Settings2,
 } from "lucide-react";
 import { useWs, type Page } from "./context";
-import { EnvDot, Select } from "./ui";
+import { EnvDot } from "./ui";
 import { cmpVersion, productOn, versionOf, where } from "./lib";
 import { relTime, t } from "./i18n";
-import type { Theme } from "./prefs";
 import { versionSource } from "./versions";
+import { useAppVersion } from "./pages/Personal";
+import { openSettings } from "./pages/Settings";
 
 const isMac = navigator.userAgent.includes("Mac");
 
 export function Shell({ title, children, onSwitchProject }: { title: string; children: ReactNode; onSwitchProject: () => void }) {
   const ws = useWs();
   const { manifest: m, env, page, go } = ws;
-  const [prefsOpen, setPrefsOpen] = useState(false);
+  const version = useAppVersion();
   const [, tick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => tick((n) => n + 1), 30_000);
@@ -77,7 +78,6 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
         </div>
 
         <div className="relative mt-3">
-          {prefsOpen && <PrefsPopover onClose={() => setPrefsOpen(false)} />}
           <div className="raise flex items-center gap-2.5 px-3 py-2.5 text-[12px]">
             <span className="relative flex size-2">
               {running.length > 0 && <span className="am-ping absolute inline-flex size-full rounded-full bg-accent" />}
@@ -87,8 +87,9 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
               <span className="block font-medium">{running.length ? t("{n} running", { n: running.length }) : t("Nothing running")}</span>
               <span className="block truncate text-fg-3">{ws.state.git.branch ? `git · ${ws.state.git.branch}` : t("no git")}{ws.state.git.dirty.length ? ` · ${t("{n} uncommitted", { n: ws.state.git.dirty.length })}` : ""}</span>
             </span>
-            <button className="ib !size-7" title={t("Preferences")} onClick={() => setPrefsOpen(!prefsOpen)}><Settings size={15} /></button>
+            <button className="ib !size-7" title={t("Preferences")} onClick={() => openSettings(go, "preferences")}><Settings size={15} /></button>
           </div>
+          {version && <p className="mt-1.5 px-1 text-center text-[10.5px] text-fg-3" title={t("App version")}>Ansible Mario <span className="font-mono">v{version}</span></p>}
         </div>
       </aside>
 
@@ -124,47 +125,6 @@ export function Shell({ title, children, onSwitchProject }: { title: string; chi
           </header>
           <div className="relative flex min-h-0 flex-1">{children}</div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function PrefsPopover({ onClose }: { onClose: () => void }) {
-  const ws = useWs();
-  const ref = useRef<HTMLDivElement>(null);
-  const p = ws.prefs;
-  useEffect(() => {
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && onClose();
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, [onClose]);
-  const themes: [Theme, ReactNode, string][] = [["auto", <Monitor size={14} />, t("Auto")], ["light", <Sun size={14} />, t("Light")], ["dark", <Moon size={14} />, t("Dark")]];
-  return (
-    <div ref={ref} className="panel am-in absolute bottom-full left-0 right-0 z-40 mb-2 space-y-4 p-4" style={{ background: "var(--w-raise)" }}>
-      <div>
-        <span className="label">{t("Language")}</span>
-        <div className="seg w-full">
-          {(["en", "pt"] as const).map((l) => (
-            <button key={l} className={`flex-1 justify-center ${p.lang === l ? "on" : ""}`} onClick={() => ws.setPrefs({ ...p, lang: l })}>{l === "en" ? "English" : "Português"}</button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className="label">{t("Theme")}</span>
-        <div className="seg w-full">
-          {themes.map(([v, icon, l]) => (
-            <button key={v} className={`flex-1 justify-center ${p.theme === v ? "on" : ""}`} onClick={() => ws.setPrefs({ ...p, theme: v })}>{icon}{l}</button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className="label">{t("Refresh automatically")}</span>
-        <Select
-          value={String(p.refreshMin)}
-          onChange={(v) => ws.setPrefs({ ...p, refreshMin: Number(v) })}
-          options={[0, 1, 3, 5, 10, 30].map((n) => ({ value: String(n), label: n === 0 ? t("Off") : t("Every {n} min", { n }) }))}
-        />
-        <p className="mt-1.5 text-[11.5px] text-fg-3">{t("Reads releases, history and the inventory — never connects to the servers.")}</p>
       </div>
     </div>
   );

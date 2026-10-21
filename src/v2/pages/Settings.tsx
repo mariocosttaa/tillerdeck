@@ -5,8 +5,16 @@ import { useWs } from "../context";
 import { ENV_COLOR } from "../lib";
 import { Chips, EnvDot, KINDS, Modal, Select, TechIcon, Tint, Toggle, techLabel, type Opt } from "../ui";
 import { lang, t, tn } from "../i18n";
+import { GitSettings, Preferences } from "./Personal";
 
-type Tab = "general" | "servers" | "products" | "operations" | "variables" | "json";
+type Tab = "general" | "servers" | "products" | "operations" | "variables" | "json" | "preferences" | "git";
+
+/** Abrir as Definições num separador (o ⚙ da barra lateral abre as Preferências). */
+export function openSettings(go: (p: "definicoes") => void, tab: Tab) {
+  try { sessionStorage.setItem("ansible-mario.settingsTab", tab); } catch { /* sem armazenamento */ }
+  go("definicoes");
+  window.dispatchEvent(new CustomEvent("am-settings-tab", { detail: tab }));
+}
 const ACTIONS = ["deploy", "migrate", "seed", "maintenanceOn", "maintenanceOff"];
 const actionLabel = (a: string) => ({ deploy: t("Deploy"), migrate: t("Migrate"), seed: t("Seed"), maintenanceOn: t("Close"), maintenanceOff: t("Reopen") })[a] ?? a;
 const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "x";
@@ -38,7 +46,21 @@ function liveProblems(m: Manifest, targets: Set<string>, files: Set<string>): st
 
 export function Settings() {
   const ws = useWs();
-  const [tab, setTab] = useState<Tab>("products");
+  const [tab, setTab] = useState<Tab>(() => {
+    try {
+      const v = sessionStorage.getItem("ansible-mario.settingsTab") as Tab | null;
+      sessionStorage.removeItem("ansible-mario.settingsTab");
+      return v ?? "products";
+    } catch {
+      return "products";
+    }
+  });
+  useEffect(() => {
+    const on = (e: Event) => setTab((e as CustomEvent<Tab>).detail);
+    window.addEventListener("am-settings-tab", on);
+    return () => window.removeEventListener("am-settings-tab", on);
+  }, []);
+  const personal = tab === "preferences" || tab === "git";
   const [draft, setDraft] = useState<Manifest>(ws.manifest);
   const [json, setJson] = useState(() => JSON.stringify(ws.manifest, null, 2));
   const [jsonErr, setJsonErr] = useState<string | null>(null);
@@ -79,17 +101,22 @@ export function Settings() {
     ["variables", t("Variables"), draft.variables?.length ?? 0],
     ["json", "JSON"],
   ];
+  const mine: [Tab, string][] = [["preferences", t("Preferences")], ["git", "Git"]];
 
   return (
     <section className="scroll min-w-0 flex-1 overflow-auto">
       <div className="sticky top-0 z-20 border-b hair px-6 pb-3 pt-4" style={{ background: "var(--w-panel)" }}>
         <div className="flex flex-wrap items-center gap-3">
-          <p className="min-w-0 flex-1 text-[13px] text-fg-2">
-            {t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}
-          </p>
-          <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Apply template")}</button>
+          {personal ? (
+            <p className="min-w-0 flex-1 text-[13px] text-fg-2">{t("Saved on this computer only — each person chooses their own.")}</p>
+          ) : (
+            <p className="min-w-0 flex-1 text-[13px] text-fg-2">
+              {t("Saved in")} <span className="font-mono text-fg">{ws.project.name}/ansible-mario.json</span> — {t("it travels with the repository, the team sees the same.")}
+            </p>
+          )}
+          {!personal && <button className="b" onClick={() => setWizard(true)}><Wand2 size={15} />{t("Apply template")}</button>}
           {dirty && <button className="b b-ghost" onClick={() => update(ws.manifest)}><RotateCcw size={15} />{t("Discard")}</button>}
-          <button className="b b-pri" disabled={!dirty || !!jsonErr} onClick={save}><Save size={15} />{dirty ? t("Save") : t("Saved")}</button>
+          {(!personal || dirty) && <button className="b b-pri" disabled={!dirty || !!jsonErr} onClick={save}><Save size={15} />{dirty ? t("Save") : t("Saved")}</button>}
         </div>
         <div className="mt-3 flex items-center gap-2">
           <div className="seg">
@@ -99,12 +126,19 @@ export function Settings() {
               </button>
             ))}
           </div>
+          <div className="seg">
+            {mine.map(([id, label]) => (
+              <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{label}</button>
+            ))}
+          </div>
           {problems.length > 0 && <span className="ml-auto"><Tint color="var(--warn)"><TriangleAlert size={12} />{tn(problems.length, "{n} problem", "{n} problems")}</Tint></span>}
         </div>
       </div>
 
       <div className="space-y-5 px-6 pb-12 pt-5">
-        {problems.length > 0 && (
+        {tab === "preferences" && <Preferences />}
+        {tab === "git" && <GitSettings />}
+        {!personal && problems.length > 0 && (
           <div className="raise p-4" style={{ boxShadow: "0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent)" }}>
             <p className="flex items-center gap-2 font-medium text-warn"><TriangleAlert size={15} />{t("Affected buttons are disabled until this is fixed")}</p>
             <ul className="mt-2 space-y-1 text-[12.5px] text-fg-2">{problems.slice(0, 10).map((p, i) => <li key={i}>{p}</li>)}</ul>
