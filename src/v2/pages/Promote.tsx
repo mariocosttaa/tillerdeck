@@ -190,7 +190,7 @@ export function Promote() {
             const d = cmpVersion(rf[s.releaseKey!], rt[s.releaseKey!]);
             const r = reg[s.releaseKey!];
             return (
-              <div key={k} className={`row flex items-center gap-4 px-4 py-3.5 ${on ? "sel" : ""}`} onClick={() => toggle(k)} style={on ? {} : { background: "var(--w-raise)", boxShadow: "0 0 0 1px var(--w-line)" }}>
+              <div key={k} className={`row flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 ${on ? "sel" : ""}`} onClick={() => toggle(k)} style={on ? {} : { background: "var(--w-raise)", boxShadow: "0 0 0 1px var(--w-line)" }}>
                 <span className="grid size-5 shrink-0 place-items-center rounded-[6px]" style={on ? { background: "var(--w-accent)", color: "#fff" } : { boxShadow: "inset 0 0 0 1.5px var(--w-fg-3)" }}>{on && <Check size={14} />}</span>
                 <TechIcon kind={s.kind} />
                 <div className="w-48 min-w-0"><p className="truncate text-[14px] font-medium">{s.label}</p><p className="truncate text-[12px] text-fg-3">{p.label} · {techLabel(s.kind)}</p></div>
@@ -203,20 +203,21 @@ export function Promote() {
                 {s.perEnvImage ? (
                   r?.loading ? <span className="pill bg-raise-2 text-fg-3">a perguntar ao registry…</span>
                   : r?.value ? <Tint color="var(--ok)"><PackageCheck size={13} />tag encontrada no registry</Tint>
-                  : (
-                    <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} title={r?.error}>
-                      <Tint color="var(--warn)"><PackageX size={13} />{r?.error && r.error.length < 44 ? r.error : "sem tag do registry"}</Tint>
-                      <input
-                        className="field !h-8 !w-56 font-mono !text-[12px]"
-                        placeholder={`tag de ${to.label.toLowerCase()}…`}
-                        defaultValue={manual[s.releaseKey!] ?? ""}
-                        onChange={(e) => setManual({ ...manual, [s.releaseKey!]: e.target.value.trim() })}
-                        spellCheck={false}
-                      />
-                    </span>
-                  )
+                  : <span title={r?.error}><Tint color="var(--warn)"><PackageX size={13} />tag à mão</Tint></span>
                 ) : (
                   <span className="pill bg-raise-2 text-fg-2"><Copy size={13} />a mesma tag</span>
+                )}
+                {s.perEnvImage && !r?.loading && !r?.value && (
+                  <div className="flex basis-full items-center gap-2 pl-[90px] text-[12.5px]" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-fg-3">{r?.error ?? "sem resposta do registry"} — escreve a tag de {to.label.toLowerCase()}:</span>
+                    <input
+                      className="field !h-8 !w-72 font-mono !text-[12px]"
+                      placeholder={`${shortVersion(rf[s.releaseKey!])}-${to.id}-…`}
+                      defaultValue={manual[s.releaseKey!] ?? ""}
+                      onChange={(e) => setManual({ ...manual, [s.releaseKey!]: e.target.value.trim() })}
+                      spellCheck={false}
+                    />
+                  </div>
                 )}
               </div>
             );
