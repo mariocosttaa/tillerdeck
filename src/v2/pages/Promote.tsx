@@ -5,6 +5,7 @@ import { canRun, specFor, useWs, type Ws } from "../context";
 import { cmpVersion, makeTarget, productOn, serviceKey, shortVersion, versionOf, where } from "../lib";
 import { TechIcon, Tint, techLabel } from "../ui";
 import { t, tn } from "../i18n";
+import { commitMessage, commitReleases, loadGit } from "../git";
 
 type Item = { p: Product; s: Service };
 type Planned = Item & { value: string; old?: string };
@@ -15,7 +16,7 @@ type Planned = Item & { value: string; old?: string };
  * deploy, e se o deploy falhar repõe a linha e pára. O release nunca fica a
  * dizer uma versão que não está instalada.
  */
-async function applyVersions(ws: Ws, server: EnvDef, plan: Planned[], title: string, commit: boolean) {
+async function applyVersions(ws: Ws, server: EnvDef, plan: Planned[], title: string, commit: boolean, kind: "promote" | "rollback" = "promote") {
   const done: Planned[] = [];
   const touched = new Set<string>();
   for (const it of plan) {
@@ -45,16 +46,9 @@ async function applyVersions(ws: Ws, server: EnvDef, plan: Planned[], title: str
   }
   await ws.refresh();
   if (done.length && commit) {
-    const msg = `${title}: ${done.map((d) => `${d.s.label} ${shortVersion(d.value)}`).join(", ")} (${server.label})`;
-    for (const file of touched) {
-      try {
-        const sha = await api.releaseCommit(ws.project.root, file, msg);
-        ws.toast(t("Commit {sha} — {msg}", { sha, msg }));
-      } catch (e) {
-        ws.toast(t("The commit failed: {e}", { e: errorText(e) }), true);
-      }
-    }
-    await ws.refresh();
+    const items = done.map((d) => `${d.s.label} ${shortVersion(d.value)}`);
+    const msg = kind === "rollback" ? commitMessage.rollback(items, server.label) : commitMessage.promote(items, server.label);
+    await commitReleases(ws, [...touched], msg, loadGit(ws.project.root).after === "push");
   } else if (done.length === plan.length && done.length) {
     ws.toast(tn(done.length, "{n} service installed on {env}", "{n} services installed on {env}", { env: server.label }));
   }
@@ -80,7 +74,8 @@ async function resolveValue(ws: Ws, p: Product, s: Service, from: EnvDef, to: En
  * Promover (ou voltar atrás, com `override`): resolve as versões, pede uma
  * confirmação para todos e corre `applyVersions`.
  */
-export async function promoteServices(ws: Ws, items: Item[], override?: { value: string; title: string }, commit = false, manual: Record<string, string> = {}) {
+export async function promoteServices(ws: Ws, items: Item[], override?: { value: string; title: string }, commitOpt?: boolean, manual: Record<string, string> = {}) {
+  const commit = commitOpt ?? loadGit(ws.project.root).after !== "off";
   const promo = ws.manifest.promotion[0];
   const server = override ? ws.env : ws.manifest.environments.find((e) => e.id === promo?.to);
   const from = ws.manifest.environments.find((e) => e.id === promo?.from);
@@ -117,7 +112,7 @@ export async function promoteServices(ws: Ws, items: Item[], override?: { value:
       { icon: <Copy size={16} />, text: t("For each service: write its line in the release, deploy; if it fails, restore the line and stop.") },
     ],
     confirmLabel: one ? title : `${title} ${plan.length}`,
-    onConfirm: () => applyVersions(ws, server, plan, title, commit),
+    onConfirm: () => applyVersions(ws, server, plan, title, commit, override ? "rollback" : "promote"),
   });
 }
 
@@ -128,7 +123,7 @@ export function Promote() {
   const from = m.environments.find((e) => e.id === promo?.from);
   const to = m.environments.find((e) => e.id === promo?.to);
   const [chosen, setChosen] = useState<Set<string> | null>(null);
-  const [commit, setCommit] = useState(false);
+  const [commit, setCommit] = useState(() => loadGit(ws.project.root).after !== "off");
   const [reg, setReg] = useState<Record<string, { value?: string; error?: string; loading?: boolean }>>({});
   // Sem registry (ou sem resposta): a tag escreve-se à mão.
   const [manual, setManual] = useState<Record<string, string>>({});

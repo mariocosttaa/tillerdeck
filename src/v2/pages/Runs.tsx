@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { CircleCheck, CircleSlash, CircleX, Copy, LoaderCircle, RefreshCw, ScrollText } from "lucide-react";
+import { CircleCheck, CircleSlash, CircleX, Copy, GitCommitHorizontal, LoaderCircle, RefreshCw, ScrollText, Settings2 } from "lucide-react";
 import type { HistoryEntry } from "../../api";
 import { useWs } from "../context";
 import { duration, looksDestructive } from "../lib";
 import { EnvDot } from "../ui";
 import { locale, relTime, t } from "../i18n";
+import { commitMessage, commitReleases, dirtyReleases, loadGit } from "../git";
+import { openSettings } from "./Settings";
 
 type F = "all" | "failed" | string;
 
@@ -52,9 +54,23 @@ export function Runs() {
     : h.exitCode === 0 ? <CircleCheck size={16} className="text-ok" />
     : <CircleX size={16} className="text-danger" />;
 
+  const dirtyRel = dirtyReleases(ws);
+  const gitAfter = loadGit(ws.project.root).after;
   return (
     <>
       <section className="scroll min-w-0 flex-1 overflow-auto px-6 pb-10 pt-5">
+        {dirtyRel.length > 0 && (
+          <div className="raise mb-4 flex items-center gap-3 px-4 py-3">
+            <GitCommitHorizontal size={16} className="text-accent" />
+            <span className="min-w-0 flex-1 text-[13px]">
+              {t("Release changes not committed:")} <span className="font-mono text-fg-2">{dirtyRel.join(", ")}</span>
+            </span>
+            <button className="b b-sm" onClick={() => commitReleases(ws, dirtyRel, commitMessage.manual(dirtyRel), gitAfter === "push")}>
+              {gitAfter === "push" ? t("Commit and push") : t("Commit")}
+            </button>
+            <button className="ib !size-8" title={t("Git settings")} onClick={() => openSettings(ws.go, "git")}><Settings2 size={15} /></button>
+          </div>
+        )}
         <div className="seg">
           <button className={f === "all" ? "on" : ""} onClick={() => setF("all")}>{t("All")} <span className="text-fg-3">{mine.length}</span></button>
           <button className={f === "failed" ? "on" : ""} onClick={() => setF("failed")}>{t("Failed")}</button>

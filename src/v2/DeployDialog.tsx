@@ -5,6 +5,7 @@ import { actionMeta, canRun, callbackFacts, specFor, varsFor, useWs, type Ws } f
 import { makeTarget, serviceKey, shortVersion, versionOf, where } from "./lib";
 import { Modal, TechIcon, Toggle } from "./ui";
 import { relTime, t } from "./i18n";
+import { commitMessage, commitReleases, loadGit } from "./git";
 import { cached, formatSize, loadChoices, loadError, sourceLabel, versionSource, type Choice } from "./versions";
 
 export interface DeployRequest {
@@ -91,14 +92,7 @@ async function execute(ws: Ws, p: Product, s: Service, server: EnvDef, mode: Mod
   }
   await ws.refresh();
   if (changes && commit) {
-    const msg = `${t("Deploy")} ${s.label} ${shortVersion(value)} (${server.label})`;
-    try {
-      const sha = await api.releaseCommit(ws.project.root, w.release!, msg);
-      ws.toast(t("Commit {sha} — {msg}", { sha, msg }));
-    } catch (e) {
-      ws.toast(t("The commit failed: {e}", { e: errorText(e) }), true);
-    }
-    await ws.refresh();
+    await commitReleases(ws, [w.release!], commitMessage.deploy(s.label, shortVersion(value), server.label), loadGit(ws.project.root).after === "push");
   } else {
     ws.toast(t("{s} done on {env}", { s: s.label, env: server.label }));
   }
@@ -123,7 +117,8 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
   const [at, setAt] = useState<number | undefined>(() => cached(ws, p, s, server)?.at);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [commit, setCommit] = useState(false);
+  const git = loadGit(ws.project.root);
+  const [commit, setCommit] = useState(git.after !== "off");
   const [typed, setTyped] = useState("");
   const fields = useMemo(() => [...new Map((mode?.steps ?? []).flatMap((a) => {
     const tg = makeTarget(s.actions[a], w.token);
@@ -247,7 +242,7 @@ export function DeployDialog({ req, onClose }: { req: DeployRequest; onClose: ()
           {changes && (
             <div className="mt-3 flex items-center gap-3 text-[12.5px]">
               <span className="font-mono text-fg-2">{shortVersion(current) || "—"}</span><span className="text-fg-3">→</span><span className="font-mono font-medium text-ok">{shortVersion(value)}</span>
-              <span className="ml-auto flex items-center gap-2 text-fg-2"><Toggle on={commit} onChange={setCommit} disabled={!ws.state.git.branch} />{t("Commit {file}", { file: w.release ?? "" })}</span>
+              <span className="ml-auto flex items-center gap-2 text-fg-2"><Toggle on={commit} onChange={setCommit} disabled={!ws.state.git.branch} />{git.after === "push" ? t("Commit and push {file}", { file: w.release ?? "" }) : t("Commit {file}", { file: w.release ?? "" })}</span>
             </div>
           )}
         </div>
