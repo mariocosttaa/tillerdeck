@@ -125,8 +125,8 @@ const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
 export function parseSteps(lines: string[], prev: Step[] = [], now = Date.now()): Step[] {
   const steps = prev.map((s) => ({ ...s }));
-  for (const raw of lines) {
-    const l = strip(raw);
+  for (const raw of lines.flatMap((x) => x.split("\n"))) {
+    const l = strip(raw).trimStart();
     const m = l.match(/^TASK \[(.+?)\]/);
     if (m) {
       const cur = steps[steps.length - 1];
